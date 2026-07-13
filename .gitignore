@@ -1,0 +1,62 @@
+# --- Python ---
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.eggs/
+dist/
+build/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+.tox/
+.nox/
+.venv/
+venv/
+ENV/
+env/
+
+# --- Project runtime / generated ---
+# Virtual env & local engine binary (downloaded per machine)
+camilladsp
+camilladsp.exe
+*.tar.gz
+*.zip
+!docs/**/*.zip
+
+# Saved CamillaDSP configs & FIR IRs (user-specific; large binary WAVs)
+presets/
+*.wav
+
+# Logs (all session / engine logs live under logs/)
+logs/
+*.log
+
+# Optional offline measurement dumps (may be large / redistributable under separate terms)
+offline_csvs/
+
+# Legacy root-level generated configs (if any remain locally)
+cosplay_config.yml
+cosplay_*.yml
+!docs/**/*.yml
+
+# --- OS / editor ---
+.DS_Store
+.AppleDouble
+.LSOverride
+Thumbs.db
+Desktop.ini
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# --- Secrets / local overrides ---
+.env
+.env.*
+*.local
