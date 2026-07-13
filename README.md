@@ -2,8 +2,34 @@
 
 **Make one pair of headphones sound like another** — using frequency-response data from [AutoEq](https://github.com/jaakkopasanen/AutoEq), a fixed **10-band parametric EQ**, optional **minimum-phase FIR** residual correction, and real-time playback through [CamillaDSP](https://github.com/HEnquist/camilladsp).
 
+**Languages / 语言:** [English](README.md) · [中文说明](README.zh-CN.md)
+
 > Short blurb for GitHub **About**:  
 > Headphone “cosplay” EQ: fit Source→Target FR from AutoEq, export 10-band IIR PEQ + optional min-phase FIR, deploy via CamillaDSP. GUI & CLI (en/zh/ja).
+
+---
+
+## Get the code (important)
+
+**We strongly recommend using `git clone` instead of downloading the ZIP from GitHub.**
+
+| Method | Why |
+|--------|-----|
+| **`git clone` (recommended)** | Keeps executable bits (`+x`) on launch scripts; easier updates via `git pull`; fewer “permission denied” / Gatekeeper surprises |
+| **Download ZIP** | Often strips executable permissions; on macOS may add quarantine attributes; updates require re-downloading |
+
+```bash
+git clone https://github.com/insightlacyrina/eq_cosplay.git
+cd eq_cosplay
+```
+
+If you already used a ZIP on macOS/Linux, fix permissions once:
+
+```bash
+chmod +x start.command start_cli.command cosplay_gui.py cosplay.py
+# macOS only, if Gatekeeper blocks launch:
+xattr -dr com.apple.quarantine .
+```
 
 ---
 
@@ -61,6 +87,9 @@ PEQ values can be copied into Equalizer APO, Wavelet, etc. **Full residual accur
 | **Linux** | `bash start.command` | `bash start.command --cli` |
 
 ```bash
+# After git clone (recommended)
+cd eq_cosplay
+
 # macOS / Linux
 ./start.command          # GUI (default)
 ./start.command --cli    # terminal UI
@@ -72,7 +101,7 @@ start_cli.bat            # terminal UI
 
 First run creates `.venv`, installs dependencies, and starts the app.
 
-**Windows notes:** `start.command` is a bash script and will **not** start the GUI on Windows — use **`start.bat`**. The launcher resolves `py -3` / `python` / `python3`, creates `.venv\Scripts\…`, checks Tkinter, and uses `pythonw.exe` for the GUI when available. If Tk is missing, reinstall Python from [python.org](https://www.python.org/downloads/) with **“tcl/tk and IDLE”** enabled.
+**Windows notes:** `start.command` is a bash script and will **not** start the GUI on Windows — use **`start.bat`**. The launcher resolves `py -3` / `python` / `python3`, creates `.venv\Scripts\…`, and checks Tkinter. If Tk is missing, reinstall Python from [python.org](https://www.python.org/downloads/) with **“tcl/tk and IDLE”** enabled.
 
 `start.command` (macOS) also runs a **new-Mac preflight**: restores `+x`, clears `com.apple.quarantine` when possible, warns if the project lives under Desktop/Documents/Downloads, and keeps the Terminal window open on failure so error text is readable.
 
@@ -98,7 +127,7 @@ First run creates `.venv`, installs dependencies, and starts the app.
 ### Manual
 
 ```bash
-git clone <your-repo-url> eq_cosplay
+git clone https://github.com/insightlacyrina/eq_cosplay.git
 cd eq_cosplay
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
@@ -129,10 +158,12 @@ eq_cosplay/
 ├── start.bat            # Windows bootstrap + GUI
 ├── start_cli.bat        # Windows CLI
 ├── requirements.txt     # Python dependencies
+├── README.md            # English docs
+├── README.zh-CN.md      # Chinese docs
 ├── presets/             # Saved YAML + FIR WAVs (generated; usually gitignored content)
 ├── logs/                # Session & engine logs (gitignored)
 ├── offline_csvs/        # Optional offline AutoEq-style CSVs
-└── README.md
+└── LICENSE
 ```
 
 Do **not** commit the CamillaDSP binary or machine-local presets/logs unless you intentionally want to.
@@ -189,11 +220,9 @@ EQ cannot fully reproduce another headphone’s timbre, staging, or nonlinear be
 
 ## License
 
-Recommended for **this repository’s own source** (Python scripts, launchers, docs): **MIT**.
+This repository’s own source (Python scripts, launchers, docs) is under the **MIT License**. See [LICENSE](LICENSE).
 
 Third-party components keep their own licenses:
 
 - AutoEq measurement data: follow AutoEq / measurer terms when redistributing CSVs.  
 - CamillaDSP: GPL-3.0 **or** MPL-2.0 (see upstream). Prefer **downloading at runtime**; do not commit the binary unless you accept distributing under a compatible policy.
-
-See [LICENSE](LICENSE) once you add a license file to the repo.
