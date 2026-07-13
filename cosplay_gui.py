@@ -178,20 +178,37 @@ class _QueueWriter:
 # ---------------------------------------------------------------------------
 
 def ask_provider(parent, entries: list[dict]) -> dict:
+    """多测量源选择。entries 为空时回退安全值；关闭窗口未选时用默认第一项。"""
+    if not entries:
+        raise ValueError("ask_provider: empty entries")
     if len(entries) == 1:
         return entries[0]
 
-    result: dict = {"value": entries[0]}
+    result: dict = {"value": entries[0], "done": False}
     win = Toplevel(parent)
-    win.title(cp.translate("provider_list_header").strip() or "Provider")
-    win.transient(parent)
-    win.grab_set()
+    title = (cp.translate("provider_list_header") or "Provider").strip().lstrip("\n")
+    win.title(title or "Provider")
+    try:
+        win.transient(parent)
+    except Exception:
+        pass
     win.geometry("520x320")
     win.minsize(360, 240)
+    # 置顶，避免被主窗口挡住（部分平台 grab 异常时仍可用）
+    try:
+        win.lift()
+        win.focus_force()
+        win.grab_set()
+    except Exception:
+        pass
 
-    ttk.Label(win, text=cp.translate("provider_list_header")).pack(anchor="w", padx=10, pady=(10, 4))
-    lb_frame = Frame(win)
+    ttk.Label(win, text=title).pack(anchor="w", padx=10, pady=(10, 4))
+
+    lb_frame = ttk.Frame(win)
     lb_frame.pack(fill=BOTH, expand=True, padx=10, pady=4)
+    lb_frame.rowconfigure(0, weight=1)
+    lb_frame.columnconfigure(0, weight=1)
+
     scroll = ttk.Scrollbar(lb_frame, orient=VERTICAL)
     lb = ttk.Treeview(
         lb_frame,
@@ -199,31 +216,84 @@ def ask_provider(parent, entries: list[dict]) -> dict:
         show="headings",
         yscrollcommand=scroll.set,
         height=10,
+        selectmode="browse",
     )
     scroll.config(command=lb.yview)
-    lb.heading("model", text="Model")
-    lb.heading("provider", text="Provider")
-    lb.column("model", width=280, stretch=True)
-    lb.column("provider", width=180, stretch=True)
-    scroll.pack(side=RIGHT, fill=Y)
-    lb.pack(side=LEFT, fill=BOTH, expand=True)
+    lb.heading("model", text=cp.translate("gui_provider_model"))
+    lb.heading("provider", text=cp.translate("gui_provider_source"))
+    lb.column("model", width=280, stretch=True, anchor="w")
+    lb.column("provider", width=180, stretch=True, anchor="w")
+    lb.grid(row=0, column=0, sticky="nsew")
+    scroll.grid(row=0, column=1, sticky="ns")
 
     for idx, item in enumerate(entries):
-        provider = item.get("provider") or cp.extract_provider_label(item.get("relative_path", ""))
-        lb.insert("", END, iid=str(idx), values=(item.get("display_name", ""), provider))
-    lb.selection_set("0")
+        provider = item.get("provider") or cp.extract_provider_label(
+            item.get("relative_path", "") or ""
+        )
+        display = item.get("display_name", "") or ""
+        # iid 用 p{idx}，避免纯数字 iid 在部分 Tcl/Tk 上的兼容问题
+        lb.insert("", END, iid=f"p{idx}", values=(display, provider))
 
-    def on_ok() -> None:
+    first_iid = "p0"
+    try:
+        lb.selection_set(first_iid)
+        lb.focus(first_iid)
+        lb.see(first_iid)
+    except Exception:
+        pass
+
+    def _selected_entry() -> dict:
         sel = lb.selection()
-        if sel:
-            result["value"] = entries[int(sel[0])]
+        if not sel:
+            return entries[0]
+        iid = str(sel[0])
+        if iid.startswith("p") and iid[1:].isdigit():
+            i = int(iid[1:])
+            if 0 <= i < len(entries):
+                return entries[i]
+        if iid.isdigit():
+            i = int(iid)
+            if 0 <= i < len(entries):
+                return entries[i]
+        return entries[0]
+
+    def on_ok(_event=None) -> None:
+        if result["done"]:
+            return
+        result["done"] = True
+        result["value"] = _selected_entry()
+        try:
+            win.grab_release()
+        except Exception:
+            pass
         win.destroy()
 
-    lb.bind("<Double-1>", lambda _e: on_ok())
+    def on_cancel() -> None:
+        # 关闭窗口：保留默认第一项，不抛异常
+        if result["done"]:
+            return
+        result["done"] = True
+        try:
+            win.grab_release()
+        except Exception:
+            pass
+        win.destroy()
+
+    lb.bind("<Double-1>", on_ok)
+    lb.bind("<Return>", on_ok)
+    win.protocol("WM_DELETE_WINDOW", on_cancel)
+
     btn = ttk.Frame(win)
     btn.pack(fill=X, padx=10, pady=10)
     ttk.Button(btn, text=cp.translate("gui_msg_ok"), command=on_ok).pack(side=RIGHT)
-    win.wait_window()
+    ttk.Button(btn, text=cp.translate("gui_msg_cancel"), command=on_cancel).pack(
+        side=RIGHT, padx=(0, 8)
+    )
+
+    try:
+        parent.wait_window(win)
+    except Exception:
+        win.wait_window()
     return result["value"]
 
 
@@ -379,8 +449,11 @@ class CosplayApp:
         self._build_left(self.left)
         self._build_right(self.right)
 
-        # 初始 sash 位置（窗口稳定后微调）
+        # 初始 sash + 滚轮（必须在左右面板都建完后，再给左侧整棵子树绑滚轮）
         self.root.after(100, self._init_sash)
+        self._setup_left_mousewheel()
+        self.root.after(200, self._setup_left_mousewheel)
+        self.root.after(800, self._setup_left_mousewheel)
 
     def _init_sash(self) -> None:
         try:
@@ -411,11 +484,9 @@ class CosplayApp:
 
         self.left_inner.bind("<Configure>", self._on_left_inner_configure)
         self.left_canvas.bind("<Configure>", self._on_left_canvas_configure)
-        # 鼠标滚轮（绑定到 canvas）
-        self.left_canvas.bind("<Enter>", lambda _e: self._bind_mousewheel(True))
-        self.left_canvas.bind("<Leave>", lambda _e: self._bind_mousewheel(False))
 
         self._build_left_form(self.left_inner)
+        # 滚轮绑定在整窗构建完后安装（见 _build_ui 末尾），避免遗漏子控件
 
         # --- 底栏：提示 / 平台 / 捕获 / 日志目录（始终可见，随宽换行）---
         tip_box = ttk.LabelFrame(parent, text="", padding=8)
@@ -535,15 +606,22 @@ class CosplayApp:
         self.btn_deploy.grid(row=1, column=0, sticky="ew", pady=2)
         self.btn_stop = ttk.Button(bf, text="", command=self._on_stop, state=DISABLED)
         self.btn_stop.grid(row=2, column=0, sticky="ew", pady=2)
+        # 与「计算校正」等同宽全宽按钮，避免小窗口挤占绿色 FIR 文案
+        self.btn_stop_fir = ttk.Button(
+            bf, text="", command=self._on_stop_fir, state=DISABLED
+        )
+        self.btn_stop_fir.grid(row=3, column=0, sticky="ew", pady=2)
 
+        # 绿色 FIR 提示、指标提示单独占行，位于操作按钮下方（小窗口可随左侧滚动查看）
         self.lbl_fir = ttk.Label(
             parent, textvariable=self.var_fir, foreground="#0a6", justify=LEFT, anchor="w"
         )
-        self.lbl_fir.grid(row=5, column=0, sticky="ew", pady=(4, 0))
+        self.lbl_fir.grid(row=5, column=0, sticky="ew", pady=(6, 0))
+
         self.lbl_metrics = ttk.Label(
             parent, textvariable=self.var_metrics, foreground="#333", justify=LEFT, anchor="w"
         )
-        self.lbl_metrics.grid(row=6, column=0, sticky="ew", pady=(2, 0))
+        self.lbl_metrics.grid(row=6, column=0, sticky="ew", pady=(4, 0))
 
     def _build_right(self, parent: ttk.Frame) -> None:
         parent.rowconfigure(0, weight=1)
@@ -575,37 +653,209 @@ class CosplayApp:
 
     # ----- 自适应 -----
 
-    def _bind_mousewheel(self, enable: bool) -> None:
-        if enable:
-            self.left_canvas.bind_all("<MouseWheel>", self._on_mousewheel)
-            self.left_canvas.bind_all("<Button-4>", self._on_mousewheel)
-            self.left_canvas.bind_all("<Button-5>", self._on_mousewheel)
-        else:
-            self.left_canvas.unbind_all("<MouseWheel>")
-            self.left_canvas.unbind_all("<Button-4>")
-            self.left_canvas.unbind_all("<Button-5>")
+    def _setup_left_mousewheel(self) -> None:
+        """macOS 触控板 + Canvas 内嵌表单的可靠滚轮方案。
 
-    def _on_mousewheel(self, event) -> None:
-        # Linux: Button-4/5; Windows/macOS: event.delta (Windows often ±120)
+        关键点（macOS / Aqua Tk）：
+        - bind_all 收到的 MouseWheel 里 event.widget 常常是根窗口，不是指针下控件
+        - event.x_root / y_root 也经常不可用，必须用 winfo_pointerxy()
+        - 子控件不会把滚轮冒泡给 Canvas
+        """
+        if not hasattr(self, "left_canvas"):
+            return
+        self._left_wheel_bound = True
+
+        # 全局绑定（macOS 触控板主要靠这条）
+        # 不用 add='+'，保证我们的逻辑一定会跑到
+        self.root.bind_all("<MouseWheel>", self._on_mousewheel_global)
+        self.root.bind_all("<Button-4>", self._on_mousewheel_global)
+        self.root.bind_all("<Button-5>", self._on_mousewheel_global)
+
+        # 再给左侧子树直接 bind 一份（Windows/部分 Linux 更吃这套）
+        self._bind_wheel_recursive(self.left_canvas)
+        self._bind_wheel_recursive(self.left_inner)
+
+        # 进入左侧时强制刷新 scrollregion
+        self.left_canvas.bind("<Enter>", self._on_left_canvas_enter, add="+")
+        self.left_inner.bind("<Enter>", self._on_left_canvas_enter, add="+")
+
+    def _on_left_canvas_enter(self, _event=None) -> None:
+        try:
+            self._refresh_left_scrollregion()
+        except Exception:
+            pass
+
+    def _bind_wheel_recursive(self, widget) -> None:
+        for seq in ("<MouseWheel>", "<Button-4>", "<Button-5>"):
+            try:
+                widget.bind(seq, self._on_mousewheel_direct)
+            except Exception:
+                pass
+        try:
+            for child in widget.winfo_children():
+                self._bind_wheel_recursive(child)
+        except Exception:
+            pass
+
+    def _refresh_left_scrollregion(self) -> None:
+        try:
+            self.left_inner.update_idletasks()
+            # create_window 的实际需求尺寸
+            req_w = max(int(self.left_inner.winfo_reqwidth()), 1)
+            req_h = max(int(self.left_inner.winfo_reqheight()), 1)
+            bbox = self.left_canvas.bbox("all")
+            if bbox:
+                # 取 bbox 与 req 的较大高度，避免 scrollregion 偏矮导致“滚不动”
+                x0, y0, x1, y1 = bbox
+                y1 = max(y1, req_h)
+                x1 = max(x1, req_w)
+                self.left_canvas.configure(scrollregion=(x0, y0, x1, y1))
+            else:
+                self.left_canvas.configure(scrollregion=(0, 0, req_w, req_h))
+        except Exception:
+            pass
+
+    def _pointer_over_left_scroll(self, event=None) -> bool:
+        """是否在左侧 Canvas 可视区域内。
+
+        macOS：忽略 event.x_root（触控板事件常不准），始终用实时指针坐标。
+        """
+        try:
+            canvas = self.left_canvas
+            # 关键修复：macOS 触控板 + bind_all 时不要信 event.x_root
+            x, y = self.root.winfo_pointerxy()
+            self.root.update_idletasks()
+            cx = int(canvas.winfo_rootx())
+            cy = int(canvas.winfo_rooty())
+            cw = max(int(canvas.winfo_width()), 0)
+            ch = max(int(canvas.winfo_height()), 0)
+            if cw <= 1 or ch <= 1:
+                return False
+            return cx <= x < cx + cw and cy <= y < cy + ch
+        except Exception:
+            return False
+
+    def _is_over_log_panel(self) -> bool:
+        """指针是否在右侧日志 Text 上（此时把滚轮留给日志）。"""
+        try:
+            x, y = self.root.winfo_pointerxy()
+            w = self.root.winfo_containing(x, y)
+            log = getattr(self, "log", None)
+            while w is not None:
+                if log is not None and (w is log or str(w).startswith(str(log))):
+                    return True
+                # ScrolledText 内部可能是 Text 子控件
+                try:
+                    cls = w.winfo_class()
+                except Exception:
+                    cls = ""
+                if cls in ("Text", "Listbox") and log is not None:
+                    # 粗判：在右侧面板
+                    try:
+                        if int(w.winfo_rootx()) > int(self.left_canvas.winfo_rootx()) + int(
+                            self.left_canvas.winfo_width()
+                        ):
+                            return True
+                    except Exception:
+                        pass
+                try:
+                    w = w.master
+                except Exception:
+                    break
+        except Exception:
+            pass
+        return False
+
+    def _scroll_left_canvas(self, event) -> str:
+        canvas = self.left_canvas
+        self._refresh_left_scrollregion()
+        try:
+            bbox = canvas.bbox("all")
+            if not bbox:
+                return "break"
+            content_h = max(bbox[3] - bbox[1], 1)
+            view_h = max(int(canvas.winfo_height()), 1)
+            if content_h <= view_h + 2:
+                return "break"
+        except Exception:
+            return "break"
+
+        # --- 方向 ---
+        direction = 0  # +1 看下方内容
         num = getattr(event, "num", None)
         if num == 4:
-            self.left_canvas.yview_scroll(-1, "units")
-            return
-        if num == 5:
-            self.left_canvas.yview_scroll(1, "units")
-            return
-        delta = int(getattr(event, "delta", 0) or 0)
-        if delta == 0:
-            return
-        if sys.platform == "win32":
-            steps = int(-delta / 120) or (-1 if delta > 0 else 1)
-            self.left_canvas.yview_scroll(steps, "units")
+            direction = -1
+        elif num == 5:
+            direction = 1
         else:
-            # macOS trackpad sends small deltas
-            self.left_canvas.yview_scroll(-1 if delta > 0 else 1, "units")
+            try:
+                # macOS 上 delta 可能是 float
+                delta = float(getattr(event, "delta", 0) or 0)
+            except Exception:
+                delta = 0.0
+            if delta == 0:
+                return "break"
+            # macOS/Windows：delta>0 → 手指上滑 / 滚轮上 → 看上方 → first 减小
+            direction = -1 if delta > 0 else 1
+
+        # macOS 触控板：优先用经典 units 公式（社区验证最多）
+        if sys.platform == "darwin":
+            try:
+                delta = float(getattr(event, "delta", 0) or 0)
+            except Exception:
+                delta = 0.0
+            if delta != 0:
+                # 触控板 delta 常为 ±1；放大到可感知的步长
+                step = int(-delta)
+                if step == 0:
+                    step = -1 if delta > 0 else 1
+                # 一次至少滚 3 units，触控板更跟手
+                if abs(step) < 3:
+                    step = 3 if step > 0 else -3
+                canvas.yview_scroll(step, "units")
+                return "break"
+
+        # 其它平台 / 回退：按页比例 moveto
+        try:
+            first, last = canvas.yview()
+            first, last = float(first), float(last)
+            page = max(last - first, 0.08)
+            step = page * 0.2
+            new_first = max(0.0, min(first + direction * step, max(0.0, 1.0 - page)))
+            canvas.yview_moveto(new_first)
+        except Exception:
+            try:
+                canvas.yview_scroll(direction * 3, "units")
+            except Exception:
+                pass
+        return "break"
+
+    def _on_mousewheel_direct(self, event):
+        """绑在左侧子控件上的直接回调（不依赖指针几何）。"""
+        if not getattr(self, "_left_wheel_bound", False):
+            return
+        return self._scroll_left_canvas(event)
+
+    def _on_mousewheel(self, event):
+        return self._on_mousewheel_direct(event)
+
+    def _on_mousewheel_global(self, event):
+        if not getattr(self, "_left_wheel_bound", False):
+            return
+        # 右侧日志优先自己滚
+        if self._is_over_log_panel():
+            return
+        if not self._pointer_over_left_scroll(event):
+            return
+        return self._scroll_left_canvas(event)
 
     def _on_left_inner_configure(self, _event=None) -> None:
-        self.left_canvas.configure(scrollregion=self.left_canvas.bbox("all"))
+        self._refresh_left_scrollregion()
+        # 子控件变化后重新挂滚轮
+        try:
+            self._bind_wheel_recursive(self.left_inner)
+        except Exception:
+            pass
 
     def _on_left_canvas_configure(self, event) -> None:
         # 内层宽度跟随 canvas，避免横向裁切
@@ -677,6 +927,7 @@ class CosplayApp:
         self.btn_calc.configure(text=self._t("gui_calc"))
         self.btn_deploy.configure(text=self._t("gui_deploy"))
         self.btn_stop.configure(text=self._t("gui_stop"))
+        self.btn_stop_fir.configure(text=self._t("gui_stop_fir"))
 
         self.frm_peq.configure(text=self._t("gui_peq"))
         self.frm_log.configure(text=self._t("gui_log"))
@@ -730,6 +981,8 @@ class CosplayApp:
 
     def _refresh_result_labels(self) -> None:
         if not self.correction:
+            if hasattr(self, "btn_stop_fir"):
+                self.btn_stop_fir.configure(state=DISABLED)
             return
         use_fir = bool(self.correction.get("use_fir"))
         peq_rmse = float(self.correction.get("peq_rmse") or 0)
@@ -738,8 +991,10 @@ class CosplayApp:
         if use_fir:
             taps = int(self.correction.get("fir_n_taps") or 0)
             self.var_fir.set(self._t("gui_fir_on", taps=taps, rmse=comb))
+            self.btn_stop_fir.configure(state=NORMAL)
         else:
             self.var_fir.set(self._t("gui_fir_off", rmse=peq_rmse))
+            self.btn_stop_fir.configure(state=DISABLED)
         self.var_metrics.set(
             self._t(
                 "gui_metrics",
@@ -771,8 +1026,14 @@ class CosplayApp:
         self.btn_calc.configure(state=state)
         if not busy and self.correction:
             self.btn_deploy.configure(state=NORMAL)
+            # FIR 停止按钮仅在 use_fir 时可用
+            if bool(self.correction.get("use_fir")):
+                self.btn_stop_fir.configure(state=NORMAL)
+            else:
+                self.btn_stop_fir.configure(state=DISABLED)
         elif busy:
             self.btn_deploy.configure(state=DISABLED)
+            self.btn_stop_fir.configure(state=DISABLED)
 
     # ----- 启动 -----
 
@@ -985,7 +1246,56 @@ class CosplayApp:
             cp.localized_print("camilladsp_installed")
         return True
 
-    def _on_deploy(self) -> None:
+    def _disable_fir_in_correction(self) -> None:
+        """关闭当前计算结果中的 FIR，并按 IIR 响应刷新峰值指标。"""
+        if not self.correction:
+            return
+        self.correction["use_fir"] = False
+        self.correction["fir_ir"] = None
+        # 峰值改用 IIR 响应（若可算），避免仍按 FIR 联合峰值做 preamp
+        try:
+            import numpy as np
+
+            fs = float(self.var_sr.get() or cp.DEFAULT_SAMPLE_RATE)
+            grid = self.correction.get("grid_freqs")
+            if grid is None:
+                grid = cp.make_log_freqs(512)
+            bands = [
+                {
+                    "type": b["filter_type"],
+                    "frequency": float(b["frequency"]),
+                    "gain": float(b["gain"]),
+                    "Q": float(b["Q"]),
+                }
+                for b in self.peq_list
+            ]
+            peq_resp = cp.peq_response_db(np.asarray(grid, dtype=float), bands, fs=fs)
+            self.correction["response_peak"] = float(np.max(peq_resp))
+            self.correction["response_valley"] = float(np.min(peq_resp))
+            self.correction["combined_rmse"] = float(self.correction.get("peq_rmse") or 0.0)
+            self.correction["combined_resp"] = peq_resp
+        except Exception:
+            pass
+        self._refresh_result_labels()
+
+    def _on_stop_fir(self) -> None:
+        """关闭 FIR 并以仅 IIR 配置重新部署/启动 CamillaDSP。"""
+        if not self.correction or not bool(self.correction.get("use_fir")):
+            messagebox.showinfo(
+                self._t("gui_window_title"), self._t("gui_msg_stop_fir_need")
+            )
+            return
+        if not self.source_entry or not self.target_entry:
+            messagebox.showwarning(
+                self._t("gui_window_title"), self._t("gui_msg_need_calc")
+            )
+            return
+        self._disable_fir_in_correction()
+        self._log(self._t("gui_fir_stopped_log"))
+        # 重新生成 YAML（无 FIR）并重启引擎
+        self._on_deploy(status_key="gui_status_stop_fir")
+
+    def _on_deploy(self, status_key: str = "gui_status_deploy") -> None:
         if not self.correction or not self.source_entry or not self.target_entry:
             messagebox.showwarning(
                 self._t("gui_window_title"), self._t("gui_msg_need_calc")
@@ -1021,6 +1331,7 @@ class CosplayApp:
 
         def worker():
             config_path = cp.build_config_path(src, tgt)
+            # 关闭 FIR 时不写入 fir_*.wav 引用，生成纯 IIR 流水线
             cp.generate_camilladsp_config(
                 peq,
                 output,
@@ -1044,7 +1355,7 @@ class CosplayApp:
                 "use_fir": use_fir,
             }
 
-        self._run_job(worker, self._on_deploy_done, "gui_status_deploy")
+        self._run_job(worker, self._on_deploy_done, status_key)
 
     def _on_deploy_done(self, result, err) -> None:
         if err:
@@ -1130,8 +1441,11 @@ class CosplayApp:
     # ----- 关闭 -----
 
     def _on_close(self) -> None:
+        self._left_wheel_bound = False
         try:
-            self._bind_mousewheel(False)
+            self.root.unbind_all("<MouseWheel>")
+            self.root.unbind_all("<Button-4>")
+            self.root.unbind_all("<Button-5>")
         except Exception:
             pass
         try:
