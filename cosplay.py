@@ -292,6 +292,7 @@ MESSAGES = {
         "gui_source": "Current headphones (Source)",
         "gui_target": "Target headphones",
         "gui_playback": "Playback device",
+        "gui_output_resolved": "[INFO] Playback device resolved: '{user}' → '{device}'\n",
         "gui_preamp": "Pre-amp",
         "gui_preamp_safe": "Safe  −(peak+0.2) dB",
         "gui_preamp_moderate": "Moderate  −(peak/2) dB",
@@ -324,12 +325,17 @@ MESSAGES = {
         "gui_status_exited": "Engine exited",
         "gui_status_preset": "Starting preset…",
         "gui_status_download": "Downloading CamillaDSP…",
-        "gui_fir_on": "FIR on · {taps} taps · combined RMSE {rmse:.3f} dB",
-        "gui_fir_off": "IIR only · RMSE {rmse:.3f} dB (FIR not triggered)",
+        "gui_fir_on": "FIR on · {taps} taps · combined RMSE {rmse}",
+        "gui_fir_off": "IIR only · RMSE {rmse} (FIR not triggered)",
+        "gui_fir_paused": "IIR only · FIR available (disabled) · IIR RMSE {rmse}",
         "gui_stop_fir": "Stop FIR",
+        "gui_enable_fir": "Enable FIR",
         "gui_status_stop_fir": "Disabling FIR & restarting…",
+        "gui_status_enable_fir": "Enabling FIR & restarting…",
         "gui_fir_stopped_log": "[INFO] FIR disabled. Restarting CamillaDSP with IIR-only chain.\n",
+        "gui_fir_enabled_log": "[INFO] FIR re-enabled. Restarting CamillaDSP with FIR convolution chain.\n",
         "gui_msg_stop_fir_need": "FIR is not active for this session.",
+        "gui_msg_enable_fir_need": "No FIR residual is available to enable.",
         "gui_metrics": "Response peak {peak:+.2f} dB  |  Level offset {offset:+.2f} dB",
         "gui_db_ok": "[OK] Database ready: {count} entries.\n",
         "gui_calc_ok": "[OK] Calculation finished. You can deploy CamillaDSP.\n",
@@ -532,6 +538,7 @@ MESSAGES = {
         "gui_source": "当前耳机 (Source)",
         "gui_target": "目标耳机 (Target)",
         "gui_playback": "播放设备",
+        "gui_output_resolved": "[INFO] 播放设备已解析: '{user}' → '{device}'\n",
         "gui_preamp": "前级增益 (Pre-amp)",
         "gui_preamp_safe": "安全  −(peak+0.2) dB",
         "gui_preamp_moderate": "折中  −(peak/2) dB",
@@ -564,12 +571,17 @@ MESSAGES = {
         "gui_status_exited": "引擎已退出",
         "gui_status_preset": "启动预设…",
         "gui_status_download": "下载 CamillaDSP…",
-        "gui_fir_on": "FIR 已启用 · {taps} taps · 联合 RMSE {rmse:.3f} dB",
-        "gui_fir_off": "仅 IIR · RMSE {rmse:.3f} dB（未触发 FIR）",
+        "gui_fir_on": "FIR 已启用 · {taps} taps · 联合 RMSE {rmse}",
+        "gui_fir_off": "仅 IIR · RMSE {rmse}（未触发 FIR）",
+        "gui_fir_paused": "仅 IIR · FIR 可重新开启 · IIR RMSE {rmse}",
         "gui_stop_fir": "停止 FIR",
+        "gui_enable_fir": "开启 FIR",
         "gui_status_stop_fir": "正在关闭 FIR 并重新启动…",
+        "gui_status_enable_fir": "正在开启 FIR 并重新启动…",
         "gui_fir_stopped_log": "[INFO] 已关闭 FIR。正在以仅 IIR 链路重启 CamillaDSP。\n",
+        "gui_fir_enabled_log": "[INFO] 已重新开启 FIR。正在以 FIR 卷积链路重启 CamillaDSP。\n",
         "gui_msg_stop_fir_need": "当前会话未启用 FIR。",
+        "gui_msg_enable_fir_need": "当前没有可开启的 FIR 残差。",
         "gui_metrics": "响应峰值 {peak:+.2f} dB  |  电平对齐偏移 {offset:+.2f} dB",
         "gui_db_ok": "[OK] 数据库就绪，共 {count} 个条目。\n",
         "gui_calc_ok": "[OK] 计算完成。可点击「部署并启动 CamillaDSP」。\n",
@@ -772,6 +784,7 @@ MESSAGES = {
         "gui_source": "現在のヘッドホン (Source)",
         "gui_target": "ターゲットヘッドホン",
         "gui_playback": "再生デバイス",
+        "gui_output_resolved": "[INFO] 再生デバイスを解決: '{user}' → '{device}'\n",
         "gui_preamp": "プリアンプ",
         "gui_preamp_safe": "セーフ  −(peak+0.2) dB",
         "gui_preamp_moderate": "モデレート  −(peak/2) dB",
@@ -804,12 +817,17 @@ MESSAGES = {
         "gui_status_exited": "エンジン終了",
         "gui_status_preset": "プリセット起動中…",
         "gui_status_download": "CamillaDSP をダウンロード中…",
-        "gui_fir_on": "FIR 有効 · {taps} taps · 合成 RMSE {rmse:.3f} dB",
-        "gui_fir_off": "IIR のみ · RMSE {rmse:.3f} dB（FIR 未使用）",
+        "gui_fir_on": "FIR 有効 · {taps} taps · 合成 RMSE {rmse}",
+        "gui_fir_off": "IIR のみ · RMSE {rmse}（FIR 未使用）",
+        "gui_fir_paused": "IIR のみ · FIR 再有効化可 · IIR RMSE {rmse}",
         "gui_stop_fir": "FIR 停止",
+        "gui_enable_fir": "FIR 有効化",
         "gui_status_stop_fir": "FIR を無効化して再起動中…",
+        "gui_status_enable_fir": "FIR を有効化して再起動中…",
         "gui_fir_stopped_log": "[INFO] FIR を無効化しました。IIR のみで CamillaDSP を再起動します。\n",
+        "gui_fir_enabled_log": "[INFO] FIR を再有効化しました。FIR 畳み込みで CamillaDSP を再起動します。\n",
         "gui_msg_stop_fir_need": "このセッションでは FIR は有効ではありません。",
+        "gui_msg_enable_fir_need": "有効化できる FIR 残差がありません。",
         "gui_metrics": "応答ピーク {peak:+.2f} dB  |  レベルオフ {offset:+.2f} dB",
         "gui_db_ok": "[OK] データベース準備完了: {count} 件。\n",
         "gui_calc_ok": "[OK] 計算完了。CamillaDSP をデプロイできます。\n",
@@ -1375,6 +1393,206 @@ def config_uses_fir_conv(config_path: Path) -> bool:
         return True
     # 宽松匹配：存在 Conv + Wav 卷积段
     return ('type: conv' in lower) and ('type: wav' in lower or 'filename:' in lower)
+
+
+def companion_fir_wav_paths(config_path: Path) -> tuple[Path, Path]:
+    """返回与 YAML 同 stem 的左右 FIR WAV 路径。"""
+    stem = Path(config_path).with_suffix("")
+    return Path(f"{stem}_fir_left.wav"), Path(f"{stem}_fir_right.wav")
+
+
+def config_has_companion_fir_wavs(config_path: Path) -> bool:
+    """磁盘上是否仍有可重新启用的 FIR 冲激文件。"""
+    left, right = companion_fir_wav_paths(config_path)
+    return left.is_file() and right.is_file() and left.stat().st_size > 0
+
+
+def load_fir_ir_from_companion_wavs(
+    config_path: Path,
+) -> tuple[np.ndarray | None, int | None]:
+    """从预设配套 WAV 加载 FIR 冲激（优先左声道）。
+
+    返回 (ir, sample_rate)；失败时 (None, None)。
+    """
+    left, right = companion_fir_wav_paths(config_path)
+    for path in (left, right):
+        if not path.is_file():
+            continue
+        try:
+            sr, data = scipy_wavfile.read(str(path))
+            arr = np.asarray(data, dtype=np.float64).reshape(-1)
+            if arr.size > 0:
+                return arr, int(sr)
+        except Exception:
+            continue
+    return None, None
+
+
+def parse_camilladsp_config_for_regen(config_path: Path) -> dict | None:
+    """从已有 CamillaDSP YAML 提取可再生成所需的基本字段。
+
+    用于在无 correction 会话（例如刚加载预设）时仍可关闭/开启 FIR。
+    """
+    path = Path(config_path)
+    try:
+        text = path.read_text(encoding='utf-8')
+    except Exception:
+        return None
+
+    def _first_group(pattern: str, default: str | None = None) -> str | None:
+        m = re.search(pattern, text, re.IGNORECASE | re.MULTILINE)
+        return m.group(1).strip() if m else default
+
+    try:
+        samplerate = int(_first_group(r'^\s*samplerate:\s*(\d+)', '48000') or 48000)
+    except Exception:
+        samplerate = DEFAULT_SAMPLE_RATE
+
+    backend_type = _first_group(
+        r'capture:\s*\n(?:[ \t]+.+\n)*?[ \t]+type:\s*([^\n#]+)',
+        'CoreAudio',
+    ) or 'CoreAudio'
+    capture_device = _first_group(
+        r'capture:\s*\n(?:[ \t]+.+\n)*?[ \t]+device:\s*["\']?([^"\'\n]+)',
+        'BlackHole 2ch',
+    ) or 'BlackHole 2ch'
+    playback_device = _first_group(
+        r'playback:\s*\n(?:[ \t]+.+\n)*?[ \t]+device:\s*["\']?([^"\'\n]+)',
+        '',
+    ) or ''
+
+    pre_amp = 0.0
+    m_gain = re.search(
+        r'preamp_gain:\s*\n(?:[ \t]+.+\n)*?[ \t]+gain:\s*([-+0-9.eE]+)',
+        text,
+    )
+    if m_gain:
+        try:
+            pre_amp = float(m_gain.group(1))
+        except Exception:
+            pre_amp = 0.0
+
+    peq: list[dict] = []
+    # 匹配 peq_XX 段（跳过 fir_* / preamp）
+    for m in re.finditer(
+        r'^\s*(peq_\d+):\s*\n'
+        r'(?:[ \t]+type:\s*Biquad\s*\n)?'
+        r'(?:[ \t]+parameters:\s*\n)'
+        r'(?:[ \t]+type:\s*(\w+)\s*\n)'
+        r'(?:[ \t]+freq:\s*([-+0-9.eE]+)\s*\n)'
+        r'(?:[ \t]+gain:\s*([-+0-9.eE]+)\s*\n)'
+        r'(?:[ \t]+q:\s*([-+0-9.eE]+)\s*\n)',
+        text,
+        re.IGNORECASE | re.MULTILINE,
+    ):
+        try:
+            peq.append(
+                {
+                    'filter_type': m.group(2),
+                    'frequency': float(m.group(3)),
+                    'gain': float(m.group(4)),
+                    'Q': float(m.group(5)),
+                }
+            )
+        except Exception:
+            continue
+
+    if not peq:
+        return None
+
+    return {
+        'samplerate': samplerate,
+        'backend_type': backend_type.strip(),
+        'capture_device': capture_device.strip().strip('"').strip("'"),
+        'playback_device': playback_device.strip().strip('"').strip("'"),
+        'pre_amp': pre_amp,
+        'peq': peq,
+        'use_fir': config_uses_fir_conv(path),
+        'has_companion_fir': config_has_companion_fir_wavs(path),
+    }
+
+
+def regenerate_config_fir_mode(
+    config_path: Path,
+    *,
+    use_fir: bool,
+    output_device: str | None = None,
+    fir_ir: np.ndarray | None = None,
+    samplerate: int | None = None,
+) -> dict:
+    """基于已有 YAML 重新生成：开启或关闭 FIR（保留 PEQ / 设备等）。
+
+    返回用于 GUI 的摘要 dict：use_fir, samplerate, path, peq, fir_n_taps。
+    """
+    path = Path(config_path)
+    basics = parse_camilladsp_config_for_regen(path)
+    if not basics:
+        raise RuntimeError(f'Cannot parse CamillaDSP config: {path}')
+
+    peq = list(basics['peq'])
+    out_dev = (output_device or basics['playback_device'] or '').strip()
+    if not out_dev:
+        raise RuntimeError('Playback device missing in config and UI')
+
+    sr = int(samplerate or basics['samplerate'] or DEFAULT_SAMPLE_RATE)
+    ir = fir_ir
+    # 保留文件中已有 RMSE 等指标，避免开关 FIR 时被清成 0
+    existing_metrics = load_config_metrics(path)
+    mode_metrics = dict(existing_metrics)
+    mode_metrics['use_fir'] = bool(use_fir)
+
+    if use_fir:
+        if ir is None or len(np.asarray(ir).reshape(-1)) == 0:
+            ir, wav_sr = load_fir_ir_from_companion_wavs(path)
+            if ir is None:
+                raise RuntimeError(
+                    f'No FIR residual available for re-enable (missing companion WAV next to {path.name})'
+                )
+            # 与磁盘 FIR 采样率对齐，避免扬声器路径下 44.1k/48k 不一致导致卷积异常
+            if wav_sr:
+                sr = int(wav_sr)
+        taps = int(len(np.asarray(ir).reshape(-1)))
+        mode_metrics['fir_n_taps'] = taps
+        generate_camilladsp_config(
+            peq,
+            out_dev,
+            path,
+            pre_amp=float(basics['pre_amp']),
+            samplerate=sr,
+            backend_type=basics['backend_type'],
+            capture_device=basics['capture_device'],
+            fir_ir=ir,
+            metrics=mode_metrics,
+        )
+    else:
+        taps = int(existing_metrics.get('fir_n_taps') or 0)
+        generate_camilladsp_config(
+            peq,
+            out_dev,
+            path,
+            pre_amp=float(basics['pre_amp']),
+            samplerate=sr,
+            backend_type=basics['backend_type'],
+            capture_device=basics['capture_device'],
+            fir_ir=None,
+            metrics=mode_metrics,
+        )
+
+    metrics = load_config_metrics(path)
+    return {
+        'path': path,
+        'use_fir': bool(use_fir),
+        'samplerate': sr,
+        'peq': peq,
+        'fir_ir': ir if use_fir else fir_ir,
+        'fir_n_taps': int(metrics.get('fir_n_taps') or taps or 0),
+        'playback_device': out_dev,
+        'metrics': metrics,
+        'peq_rmse': metrics.get('peq_rmse'),
+        'combined_rmse': metrics.get('combined_rmse'),
+        'response_peak': metrics.get('response_peak'),
+        'level_offset_db': metrics.get('level_offset_db'),
+    }
 
 
 def launch_camilladsp_session(config_path: Path, debug_mode: bool = False) -> bool:
@@ -2686,6 +2904,74 @@ def install_blackhole() -> bool:
         return False
 
 
+_MACOS_VIRTUAL_AUDIO_KEYWORDS = (
+    'blackhole',
+    'background music',
+    'loopback',
+    'virtual',
+    'multi-output',
+    '多输出',
+    'aggregate',
+    '聚合',
+)
+
+
+def _parse_macos_audio_output_candidates(
+    profiler_text: str,
+) -> list[tuple[str, bool]]:
+    """解析 system_profiler SPAudioDataType 输出。
+
+    返回 (设备名, 是否为 Default Output Device) 列表；已排除虚拟声卡。
+    """
+    current_name: str | None = None
+    candidates: list[tuple[str, bool]] = []
+
+    for raw_line in profiler_text.splitlines():
+        line = raw_line.rstrip()
+        if not line.strip():
+            continue
+        stripped = line.strip()
+        indent = len(line) - len(line.lstrip(' '))
+        # 设备名行：缩进较浅并以 ':' 结尾
+        if indent <= 8 and stripped.endswith(':') and not stripped.startswith('Devices'):
+            name = stripped[:-1].strip()
+            if name and name not in ('Audio', 'Devices'):
+                current_name = name
+            continue
+        if current_name is None:
+            continue
+        lower = stripped.lower()
+        name_lower = current_name.lower()
+        if any(kw in name_lower for kw in _MACOS_VIRTUAL_AUDIO_KEYWORDS):
+            continue
+        if 'default output device: yes' in lower:
+            candidates.append((current_name, True))
+        elif lower.startswith('output channels:'):
+            if (current_name, False) not in candidates and (current_name, True) not in candidates:
+                candidates.append((current_name, False))
+    return candidates
+
+
+def list_macos_playback_devices() -> list[str]:
+    """列出本机可用的非虚拟 CoreAudio 播放设备名（真实耳机/音箱等）。"""
+    try:
+        result = subprocess.run(
+            ['system_profiler', 'SPAudioDataType'],
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        if result.returncode != 0 or not result.stdout:
+            return []
+        seen: list[str] = []
+        for name, _ in _parse_macos_audio_output_candidates(result.stdout):
+            if name not in seen:
+                seen.append(name)
+        return seen
+    except Exception:
+        return []
+
+
 def detect_macos_default_playback_device() -> str | None:
     """从 system_profiler 推断当前默认物理播放设备名（排除 BlackHole 等虚拟设备）。"""
     try:
@@ -2698,44 +2984,15 @@ def detect_macos_default_playback_device() -> str | None:
         if result.returncode != 0 or not result.stdout:
             return None
 
-        current_name: str | None = None
-        candidates: list[tuple[str, bool]] = []  # (name, is_default_output)
-        virtual_keywords = ('blackhole', 'background music', 'loopback', 'virtual')
-
-        for raw_line in result.stdout.splitlines():
-            line = raw_line.rstrip()
-            if not line.strip():
-                continue
-            # 设备名行：缩进较浅并以 ':' 结尾，且下一层会有 Input/Output 字段
-            stripped = line.strip()
-            indent = len(line) - len(line.lstrip(' '))
-            if indent <= 8 and stripped.endswith(':') and not stripped.startswith('Devices'):
-                name = stripped[:-1].strip()
-                if name and name not in ('Audio', 'Devices'):
-                    current_name = name
-                continue
-            if current_name is None:
-                continue
-            lower = stripped.lower()
-            if 'default output device: yes' in lower:
-                candidates.append((current_name, True))
-            elif lower.startswith('output channels:') and all(
-                kw not in current_name.lower() for kw in virtual_keywords
-            ):
-                # 有输出通道的非虚拟设备，作为备选
-                if (current_name, False) not in candidates and (current_name, True) not in candidates:
-                    candidates.append((current_name, False))
+        candidates = _parse_macos_audio_output_candidates(result.stdout)
 
         # 优先：标记为 Default Output Device 且非虚拟
         for name, is_default in candidates:
-            if is_default and all(kw not in name.lower() for kw in virtual_keywords):
+            if is_default:
                 return name
         # 其次：任意带输出的非虚拟设备（优先含 headphone/耳机/扬声器）
         preferred_keywords = ('headphone', '耳机', 'speaker', '扬声器', 'built-in')
-        non_virtual = [
-            name for name, _ in candidates
-            if all(kw not in name.lower() for kw in virtual_keywords)
-        ]
+        non_virtual = [name for name, _ in candidates]
         for name in non_virtual:
             if any(k in name.lower() for k in preferred_keywords):
                 return name
@@ -2755,6 +3012,19 @@ _BUILTIN_HEADPHONE_ALIASES = frozenset({
     'ヘッドフォン',
 })
 
+# 内置扬声器在各语言下的常见展示名（互为别名；真实设备常为「MacBook Pro扬声器」等）
+_BUILTIN_SPEAKER_ALIASES = frozenset({
+    'speakers',
+    'speaker',
+    'built-in speakers',
+    'built-in output',
+    'macbook speakers',
+    '扬声器',
+    '内置扬声器',
+    'スピーカー',
+    '内蔵スピーカー',
+})
+
 
 def is_builtin_headphone_label(name: str) -> bool:
     """判断是否为系统内置耳机插孔的本地化名称。"""
@@ -2763,12 +3033,28 @@ def is_builtin_headphone_label(name: str) -> bool:
     lowered = name.strip().lower()
     if lowered in {a.lower() for a in _BUILTIN_HEADPHONE_ALIASES}:
         return True
-    # 宽松匹配：含 headphone / 耳机 / ヘッドフォン
+    # 宽松匹配：含 headphone / 耳机 / ヘッドフォン（排除「扬声器」误伤）
+    if '扬声器' in name or 'speaker' in lowered:
+        return False
     return (
         'headphone' in lowered
         or '耳机' in name
         or 'ヘッドフォン' in name
         or 'ヘッドホン' in name
+    )
+
+
+def is_builtin_speaker_label(name: str) -> bool:
+    """判断是否为内置扬声器相关名称（含 MacBook Pro扬声器 等真实设备名）。"""
+    if not name:
+        return False
+    lowered = name.strip().lower()
+    if lowered in {a.lower() for a in _BUILTIN_SPEAKER_ALIASES}:
+        return True
+    return (
+        'speaker' in lowered
+        or '扬声器' in name
+        or 'スピーカー' in name
     )
 
 
@@ -2791,22 +3077,115 @@ def display_name_for_playback_device(real_name: str) -> str:
     return real_name
 
 
-def resolve_playback_device_name(user_or_display: str, detected_real: str | None) -> str:
-    """把用户输入 / 展示名解析为应写入配置的真实设备名。"""
+def _match_playback_device_among(text: str, available: list[str]) -> str | None:
+    """在可用设备列表中做精确 / 忽略大小写 / 子串匹配。"""
+    if not text or not available:
+        return None
+    for name in available:
+        if name == text:
+            return name
+    lower = text.lower()
+    for name in available:
+        if name.lower() == lower:
+            return name
+    # 子串：用户填「扬声器」应对上「MacBook Pro扬声器」
+    for name in available:
+        if lower in name.lower() or name.lower() in lower:
+            return name
+    return None
+
+
+def resolve_playback_device_name(
+    user_or_display: str,
+    detected_real: str | None = None,
+    available: list[str] | None = None,
+) -> str:
+    """把用户输入 / 展示名解析为应写入 CamillaDSP 配置的真实设备名。
+
+    关键规则：
+    - 绝不把「外置耳机」这类别名原样写进配置（设备未接入时不存在）；
+    - 优先匹配本机当前可用的 CoreAudio 播放设备；
+    - 耳机别名但未插入耳机时，回退到系统当前默认输出（如 MacBook Pro扬声器）。
+    """
+    system_name, _ = get_platform_info()
     text = (user_or_display or '').strip()
+
+    if available is None and system_name == 'Darwin':
+        available = list_macos_playback_devices()
+    available = list(available or [])
+
+    if detected_real is None and system_name == 'Darwin':
+        detected_real = detect_macos_default_playback_device()
+
+    # 1) 直接命中可用设备
+    matched = _match_playback_device_among(text, available) if text else None
+    if matched:
+        return matched
+
+    # 2) 耳机别名 → 可用耳机设备，否则当前默认（扬声器等）
+    if text and is_builtin_headphone_label(text):
+        for name in available:
+            if is_builtin_headphone_label(name):
+                return name
+        if detected_real:
+            return detected_real
+        if available:
+            return available[0]
+        # 最后才用本地化展示名（可能仍失败，但避免 silently 丢输入）
+        return localized_default_playback_label('headphones')
+
+    # 3) 扬声器别名 → 可用扬声器设备 / 默认
+    if text and is_builtin_speaker_label(text):
+        for name in available:
+            if is_builtin_speaker_label(name):
+                return name
+        if detected_real:
+            return detected_real
+        if available:
+            return available[0]
+        return localized_default_playback_label('speakers')
+
+    # 4) 空输入 → 系统默认
     if not text:
         if detected_real:
             return detected_real
+        if available:
+            return available[0]
         return localized_default_playback_label('headphones')
 
-    if is_builtin_headphone_label(text):
-        # 用户选择的是「内置耳机」类名称：优先用系统探测到的真实名
-        if detected_real and is_builtin_headphone_label(detected_real):
-            return detected_real
-        # 探测失败时，按界面语言给出合理回退（可能仍需用户按本机实际名调整）
-        return localized_default_playback_label('headphones')
-
+    # 5) 用户填了未知名且不在列表中：优先系统默认，避免写死幽灵设备名
+    if available and detected_real:
+        return detected_real
+    if detected_real:
+        return detected_real
+    if available:
+        return available[0]
     return text
+
+
+def set_config_playback_device(config_path: Path, output_device: str) -> bool:
+    """就地更新 YAML 中 playback.device，不改动 capture 与其它字段。
+
+    用于「加载预设」时套用 GUI 当前播放设备，避免旧预设仍写着已不存在的「外置耳机」。
+    """
+    path = Path(config_path)
+    try:
+        text = path.read_text(encoding='utf-8')
+    except Exception:
+        return False
+    # 仅替换 playback 段下的 device 行（capture 在前，playback 在后）
+    pattern = re.compile(
+        r'(playback:\s*\n(?:[ \t]+[^\n]+\n)*?[ \t]+device:\s*)(?:"[^"]*"|\'[^\']*\'|[^\n]+)',
+        re.MULTILINE,
+    )
+    new_text, n = pattern.subn(rf'\1"{output_device}"', text, count=1)
+    if n == 0:
+        return False
+    try:
+        path.write_text(new_text, encoding='utf-8')
+        return True
+    except Exception:
+        return False
 
 
 def get_output_device_name() -> str:
@@ -2819,13 +3198,16 @@ def get_output_device_name() -> str:
     """
     system_name, _ = get_platform_info()
     detected_real: str | None = None
+    available: list[str] = []
 
     if system_name == 'Darwin':
+        available = list_macos_playback_devices()
         detected_real = detect_macos_default_playback_device()
         if detected_real:
-            display_default = display_name_for_playback_device(detected_real)
+            # 界面提示用真实名（如 MacBook Pro扬声器），避免误导成「外置耳机」
+            display_default = detected_real
         else:
-            display_default = localized_default_playback_label('headphones')
+            display_default = localized_default_playback_label('speakers')
         localized_print('output_device_macos_note')
     elif system_name == 'Windows':
         display_default = localized_default_playback_label('speakers')
@@ -2848,12 +3230,12 @@ def get_output_device_name() -> str:
             user_input=user_input,
             default_name=display_default,
         )
-        return resolve_playback_device_name(display_default, detected_real)
+        return resolve_playback_device_name(display_default, detected_real, available)
 
     if not user_input:
-        return resolve_playback_device_name(display_default, detected_real)
+        return resolve_playback_device_name(display_default, detected_real, available)
 
-    return resolve_playback_device_name(user_input, detected_real)
+    return resolve_playback_device_name(user_input, detected_real, available)
 
 
 def is_camilladsp_installed() -> bool:
@@ -2948,6 +3330,132 @@ def download_camilladsp() -> bool:
         return False
 
 
+def metrics_from_correction(correction: dict | None) -> dict:
+    """从 calculate_correction 结果提取可序列化指标（供写入预设）。
+
+    peq_rmse / combined_rmse 始终保存「计算时的真实值」，不随 FIR 开/关被覆盖。
+    若会话里曾把 combined_rmse 临时改成 IIR 显示值，优先使用 fir_combined_rmse 快照。
+    """
+    if not correction:
+        return {}
+    out: dict = {}
+
+    def _f(key: str):
+        val = correction.get(key)
+        if val is None:
+            return None
+        try:
+            return float(val)
+        except Exception:
+            return None
+
+    peq_rmse = _f('peq_rmse')
+    # 联合 RMSE：优先 FIR 快照，避免 IIR 模式写盘时污染
+    combined = _f('fir_combined_rmse')
+    if combined is None:
+        combined = _f('combined_rmse')
+    # 若 combined 被错误写成与 peq 相同，而快照里有更好的值已处理；
+    # 若仅有 peq，combined 可等于 peq（未触发 FIR 时合理）
+    fir_rmse = _f('fir_rmse')
+    # 峰值：FIR 模式用联合峰；一并保存 IIR 峰便于切换
+    fir_peak = _f('fir_response_peak')
+    iir_peak = _f('iir_response_peak')
+    peak = fir_peak if fir_peak is not None else _f('response_peak')
+    valley = _f('fir_response_valley')
+    if valley is None:
+        valley = _f('response_valley')
+    offset = _f('level_offset_db')
+
+    if peq_rmse is not None:
+        out['peq_rmse'] = peq_rmse
+    if combined is not None:
+        out['combined_rmse'] = combined
+    if fir_rmse is not None:
+        out['fir_rmse'] = fir_rmse
+    if peak is not None:
+        out['response_peak'] = peak  # 规范：联合/当前计算峰值
+    if iir_peak is not None:
+        out['iir_response_peak'] = iir_peak
+    if fir_peak is not None:
+        out['fir_response_peak'] = fir_peak
+    if valley is not None:
+        out['response_valley'] = valley
+    if offset is not None:
+        out['level_offset_db'] = offset
+
+    if correction.get('fir_n_taps') is not None:
+        try:
+            out['fir_n_taps'] = int(correction['fir_n_taps'])
+        except Exception:
+            pass
+    if 'use_fir' in correction:
+        out['use_fir'] = bool(correction.get('use_fir'))
+    return out
+
+
+def write_config_metrics(config_path: Path, metrics: dict | None) -> None:
+    """将指标写入 YAML 顶部注释行（# eq_cosplay_metrics: {...}）。"""
+    if not metrics:
+        return
+    path = Path(config_path)
+    try:
+        text = path.read_text(encoding='utf-8')
+    except Exception:
+        return
+    # 去掉旧 metrics 注释
+    lines = [
+        ln
+        for ln in text.splitlines(keepends=True)
+        if not ln.lstrip().startswith('# eq_cosplay_metrics:')
+    ]
+    payload = {
+        k: metrics[k]
+        for k in (
+            'peq_rmse',
+            'combined_rmse',
+            'fir_rmse',
+            'response_peak',
+            'response_valley',
+            'iir_response_peak',
+            'fir_response_peak',
+            'level_offset_db',
+            'fir_n_taps',
+            'use_fir',
+        )
+        if k in metrics and metrics[k] is not None
+    }
+    if not payload:
+        return
+    try:
+        meta_line = '# eq_cosplay_metrics: ' + json.dumps(payload, ensure_ascii=False) + '\n'
+    except Exception:
+        return
+    # 插在开头（CamillaDSP 忽略 # 注释）
+    path.write_text(meta_line + ''.join(lines), encoding='utf-8')
+
+
+def load_config_metrics(config_path: Path) -> dict:
+    """读取预设 YAML 顶部的 eq_cosplay_metrics 注释。"""
+    path = Path(config_path)
+    try:
+        with path.open('r', encoding='utf-8', errors='replace') as fh:
+            for _ in range(30):
+                line = fh.readline()
+                if not line:
+                    break
+                stripped = line.strip()
+                if stripped.startswith('# eq_cosplay_metrics:'):
+                    raw = stripped.split(':', 1)[1].strip()
+                    data = json.loads(raw)
+                    return data if isinstance(data, dict) else {}
+                # 跳过其它注释与空行；遇到正式 YAML 则停止
+                if stripped and not stripped.startswith('#'):
+                    break
+    except Exception:
+        pass
+    return {}
+
+
 def generate_camilladsp_config(
     peq_list: list[dict],
     output_device: str,
@@ -2957,11 +3465,13 @@ def generate_camilladsp_config(
     backend_type: str = 'CoreAudio',
     capture_device: str = 'BlackHole 2ch',
     fir_ir: np.ndarray | None = None,
+    metrics: dict | None = None,
 ) -> None:
     """生成合规的 CamillaDSP YAML。
 
     可选 FIR：写入与 yml 同目录的 mono WAV，左右声道各一条 Conv 流水线，
     并在其后串联 10 段 IIR PEQ（与示例格式一致）。
+    metrics：可选，写入顶部注释供 GUI 恢复 RMSE 等指标。
     """
     config_path = Path(config_path)
     config_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2976,7 +3486,64 @@ def generate_camilladsp_config(
         write_fir_wav(fir_right_path, fir_ir, float(samplerate))
         localized_print('fir_saved', left=fir_left_path, right=fir_right_path)
 
-    yaml_content = f"""---
+    # 保留旧文件中的 metrics（重新生成时若未传入则沿用）
+    preserved = load_config_metrics(config_path) if config_path.is_file() else {}
+    merged_metrics = dict(preserved)
+    if metrics:
+        for k, v in metrics.items():
+            if v is None:
+                continue
+            # 保护：IIR 模式部署时不要把 combined_rmse 降级写成 peq_rmse
+            if (
+                k == 'combined_rmse'
+                and 'combined_rmse' in preserved
+                and 'peq_rmse' in metrics
+            ):
+                try:
+                    incoming = float(v)
+                    peq_v = float(metrics.get('peq_rmse'))
+                    old = float(preserved['combined_rmse'])
+                    if abs(incoming - peq_v) < 1e-9 and old + 1e-12 < peq_v:
+                        # 旧联合 RMSE 更好（更小），保留
+                        continue
+                except Exception:
+                    pass
+            merged_metrics[k] = v
+    if fir_ir is not None and len(fir_ir) > 0:
+        merged_metrics['use_fir'] = True
+        merged_metrics['fir_n_taps'] = int(len(fir_ir))
+    elif metrics is not None and 'use_fir' in metrics:
+        merged_metrics['use_fir'] = bool(metrics.get('use_fir'))
+    else:
+        # 本次明确生成 IIR-only 时标记，但不抹掉 peq_rmse / combined 历史
+        if metrics is not None:
+            merged_metrics['use_fir'] = False
+
+    meta_header = ''
+    if merged_metrics:
+        try:
+            slim = {
+                k: merged_metrics[k]
+                for k in (
+                    'peq_rmse',
+                    'combined_rmse',
+                    'fir_rmse',
+                    'response_peak',
+                    'response_valley',
+                    'iir_response_peak',
+                    'fir_response_peak',
+                    'level_offset_db',
+                    'fir_n_taps',
+                    'use_fir',
+                )
+                if k in merged_metrics and merged_metrics[k] is not None
+            }
+            if slim:
+                meta_header = '# eq_cosplay_metrics: ' + json.dumps(slim, ensure_ascii=False) + '\n'
+        except Exception:
+            meta_header = ''
+
+    yaml_content = f"""{meta_header}---
 devices:
   samplerate: {samplerate}
   chunksize: 1024
@@ -3846,7 +4413,7 @@ if __name__ == "__main__":
                     output_device = get_output_device_name()
                     localized_print('output_device_set', device=output_device)
 
-                    # 生成并集中保存到 presets/
+                    # 生成并集中保存到 presets/（附带 RMSE 等指标注释）
                     config_path = build_config_path(source_entry, target_entry)
                     generate_camilladsp_config(
                         peq_parameters,
@@ -3857,6 +4424,7 @@ if __name__ == "__main__":
                         backend_type=backend_type,
                         capture_device=default_capture_device,
                         fir_ir=correction.get("fir_ir") if use_fir else None,
+                        metrics=metrics_from_correction(correction),
                     )
                     if not use_fir:
                         localized_print('deploy_iir_only_notice')
