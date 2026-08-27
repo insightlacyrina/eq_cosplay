@@ -329,8 +329,8 @@ class CosplayApp:
     def __init__(self, root: Tk):
         self.root = root
         self.root.title(cp.translate("gui_window_title"))
-        self.root.geometry("1000x740")
-        self.root.minsize(720, 520)
+        self.root.geometry("1080x780")
+        self.root.minsize(760, 560)
 
         self.log_q: queue.Queue = queue.Queue()
         self._stdout_backup = sys.stdout
@@ -634,20 +634,11 @@ class CosplayApp:
         )
         self.btn_stop_fir.grid(row=3, column=0, sticky="ew", pady=2)
 
-        # 绿色 FIR 提示、指标提示单独占行，位于操作按钮下方（小窗口可随左侧滚动查看）
-        self.lbl_fir = ttk.Label(
-            parent, textvariable=self.var_fir, foreground="#0a6", justify=LEFT, anchor="w"
-        )
-        self.lbl_fir.grid(row=5, column=0, sticky="ew", pady=(6, 0))
-
-        self.lbl_metrics = ttk.Label(
-            parent, textvariable=self.var_metrics, foreground="#333", justify=LEFT, anchor="w"
-        )
-        self.lbl_metrics.grid(row=6, column=0, sticky="ew", pady=(4, 0))
-
     def _build_right(self, parent: ttk.Frame) -> None:
-        parent.rowconfigure(0, weight=1)
-        parent.rowconfigure(1, weight=2)
+        # PEQ 与频响同组 uniform，保证面积一致；日志单独分剩余空间
+        parent.rowconfigure(0, weight=2, uniform="eqpane")
+        parent.rowconfigure(1, weight=2, uniform="eqpane")
+        parent.rowconfigure(2, weight=1)
         parent.columnconfigure(0, weight=1)
 
         self.frm_peq = ttk.LabelFrame(parent, text="", padding=6)
@@ -656,7 +647,7 @@ class CosplayApp:
         self.frm_peq.columnconfigure(0, weight=1)
 
         cols = ("band", "type", "freq", "gain", "q")
-        self.tree = ttk.Treeview(self.frm_peq, columns=cols, show="headings")
+        self.tree = ttk.Treeview(self.frm_peq, columns=cols, show="headings", height=10)
         sy = ttk.Scrollbar(self.frm_peq, orient=VERTICAL, command=self.tree.yview)
         self.tree.configure(yscrollcommand=sy.set)
         self.tree.grid(row=0, column=0, sticky="nsew")
@@ -664,12 +655,65 @@ class CosplayApp:
         for c, w in (("band", 48), ("type", 100), ("freq", 90), ("gain", 80), ("q", 70)):
             self.tree.column(c, width=w, anchor="center", stretch=True)
 
+        self.frm_fr = ttk.LabelFrame(parent, text="", padding=6)
+        self.frm_fr.grid(row=1, column=0, sticky="nsew", pady=(0, 6))
+        self.frm_fr.rowconfigure(1, weight=1)
+        self.frm_fr.columnconfigure(0, weight=1)
+
+        hdr = ttk.Frame(self.frm_fr)
+        hdr.grid(row=0, column=0, sticky="ew", pady=(0, 4))
+        hdr.columnconfigure(0, weight=1)
+        hdr.columnconfigure(1, weight=1)
+        self._fr_header = hdr
+
+        legend = ttk.Frame(hdr)
+        legend.grid(row=0, column=0, sticky="nw")
+        self._fr_legend = legend
+        self.lbl_fr_src = ttk.Label(legend, text="", foreground="#2563eb")
+        self.lbl_fr_tgt = ttk.Label(legend, text="", foreground="#d97706")
+        self.lbl_fr_sim = ttk.Label(legend, text="", foreground="#059669")
+        self.lbl_fr_src.pack(side=LEFT, padx=(0, 12))
+        self.lbl_fr_tgt.pack(side=LEFT, padx=(0, 12))
+        self.lbl_fr_sim.pack(side=LEFT)
+
+        meta = ttk.Frame(hdr)
+        meta.grid(row=0, column=1, sticky="ne")
+        meta.columnconfigure(0, weight=1)
+        self._fr_meta = meta
+        self.lbl_fir = ttk.Label(
+            meta,
+            textvariable=self.var_fir,
+            foreground="#0a6",
+            justify=RIGHT,
+            anchor="e",
+        )
+        self.lbl_fir.grid(row=0, column=0, sticky="e")
+        self.lbl_metrics = ttk.Label(
+            meta,
+            textvariable=self.var_metrics,
+            foreground="#555",
+            justify=RIGHT,
+            anchor="e",
+        )
+        self.lbl_metrics.grid(row=1, column=0, sticky="e")
+
+        self.fr_canvas = Canvas(
+            self.frm_fr,
+            highlightthickness=0,
+            borderwidth=0,
+            background="#fbfbfc",
+        )
+        self.fr_canvas.grid(row=1, column=0, sticky="nsew")
+        self.fr_canvas.bind("<Configure>", self._on_fr_canvas_configure)
+        self.frm_fr.bind("<Configure>", self._on_fr_frame_configure, add="+")
+        self._fr_redraw_job = None
+
         self.frm_log = ttk.LabelFrame(parent, text="", padding=6)
-        self.frm_log.grid(row=1, column=0, sticky="nsew")
+        self.frm_log.grid(row=2, column=0, sticky="nsew")
         self.frm_log.rowconfigure(0, weight=1)
         self.frm_log.columnconfigure(0, weight=1)
         font = ("Menlo", 11) if self.system_name == "Darwin" else ("Consolas", 10)
-        self.log = ScrolledText(self.frm_log, wrap=WORD, font=font)
+        self.log = ScrolledText(self.frm_log, wrap=WORD, font=font, height=6)
         self.log.grid(row=0, column=0, sticky="nsew")
         self.log.configure(state=DISABLED)
 
@@ -1136,12 +1180,6 @@ class CosplayApp:
         except Exception:
             pass
         self._refresh_left_scrollregion()
-        w = max(event.width - 16, 120)
-        for lbl in (self.lbl_fir, self.lbl_metrics):
-            try:
-                lbl.configure(wraplength=w)
-            except Exception:
-                pass
 
     def _on_tip_configure(self, event) -> None:
         # 底栏随左侧面板宽度换行；路径类文字完整显示
@@ -1203,6 +1241,10 @@ class CosplayApp:
         self._refresh_fir_button()
 
         self.frm_peq.configure(text=self._t("gui_peq"))
+        self.frm_fr.configure(text=self._t("gui_fr"))
+        self.lbl_fr_src.configure(text="━  " + self._t("gui_fr_source"))
+        self.lbl_fr_tgt.configure(text="━  " + self._t("gui_fr_target"))
+        self.lbl_fr_sim.configure(text="━  " + self._t("gui_fr_sim"))
         self.frm_log.configure(text=self._t("gui_log"))
         # 底栏标题：提示信息（简短）
         self.tip_frame.configure(text=self._t("gui_tip_header"))
@@ -1240,6 +1282,7 @@ class CosplayApp:
             )
         except Exception:
             pass
+        self._schedule_fr_redraw()
 
     def _set_status_key(self, key: str, **kwargs) -> None:
         self._status_key = key
@@ -1470,7 +1513,9 @@ class CosplayApp:
                         pass
             else:
                 self.var_fir.set("")
+                self.var_metrics.set("")
             self._refresh_fir_button()
+            self._schedule_fr_redraw()
             return
         use_fir = bool(self.correction.get("use_fir"))
         rmse_show = self._display_rmse_for_mode(use_fir)
@@ -1498,8 +1543,238 @@ class CosplayApp:
                     offset=float(offset if offset is not None else 0.0),
                 )
             )
+        self._schedule_fr_redraw()
 
-    # ----- 日志 -----
+    # ----- 频响曲线 -----
+
+    def _on_fr_frame_configure(self, event) -> None:
+        meta = getattr(self, "_fr_meta", None)
+        wrap = 220
+        try:
+            if meta is not None:
+                wrap = max(int(meta.winfo_width()) - 8, 140)
+            else:
+                wrap = max(int(event.width) // 2 - 16, 140)
+        except Exception:
+            pass
+        for lbl in (getattr(self, "lbl_fir", None), getattr(self, "lbl_metrics", None)):
+            if lbl is None:
+                continue
+            try:
+                lbl.configure(wraplength=wrap)
+            except Exception:
+                pass
+
+    def _on_fr_canvas_configure(self, _event=None) -> None:
+        self._schedule_fr_redraw()
+
+    def _schedule_fr_redraw(self) -> None:
+        job = getattr(self, "_fr_redraw_job", None)
+        if job is not None:
+            try:
+                self.root.after_cancel(job)
+            except Exception:
+                pass
+        self._fr_redraw_job = self.root.after(16, self._draw_fr_plot)
+
+    def _fr_curve_arrays(self):
+        """返回 (freqs, source, target, simulated)，数据不足时 None。"""
+        if not self.correction:
+            return None
+        try:
+            import numpy as np
+        except Exception:
+            return None
+        freqs = self.correction.get("grid_freqs")
+        src = self.correction.get("source_fr")
+        tgt = self.correction.get("target_fr")
+        if freqs is None or src is None or tgt is None:
+            return None
+        try:
+            freqs = np.asarray(freqs, dtype=float)
+            src = np.asarray(src, dtype=float)
+            tgt = np.asarray(tgt, dtype=float)
+        except Exception:
+            return None
+        if freqs.size < 8 or src.size != freqs.size or tgt.size != freqs.size:
+            return None
+        peq = self.correction.get("peq_resp")
+        if peq is None:
+            try:
+                fs = float(self.var_sr.get() or cp.DEFAULT_SAMPLE_RATE)
+                peq = cp.peq_response_db(
+                    freqs, self._peq_bands_for_response(), fs=fs
+                )
+            except Exception:
+                peq = None
+        if peq is not None:
+            try:
+                peq = np.asarray(peq, dtype=float)
+                if peq.size != freqs.size:
+                    peq = None
+            except Exception:
+                peq = None
+        eq = None
+        if self._fir_currently_on():
+            comb = self.correction.get("combined_resp")
+            if comb is None:
+                comb = self.correction.get("fir_combined_resp")
+            if comb is not None:
+                try:
+                    comb = np.asarray(comb, dtype=float)
+                    if comb.size == freqs.size:
+                        eq = comb
+                except Exception:
+                    eq = None
+        if eq is None:
+            eq = peq if peq is not None else np.zeros_like(src)
+        sim = src + eq
+        return freqs, src, tgt, sim
+
+    def _draw_fr_plot(self) -> None:
+        self._fr_redraw_job = None
+        canvas = getattr(self, "fr_canvas", None)
+        if canvas is None:
+            return
+        try:
+            w = int(canvas.winfo_width())
+            h = int(canvas.winfo_height())
+        except Exception:
+            return
+        canvas.delete("all")
+        if w < 40 or h < 40:
+            return
+
+        pad_l, pad_r, pad_t, pad_b = 46, 14, 10, 28
+        plot_w = w - pad_l - pad_r
+        plot_h = h - pad_t - pad_b
+        if plot_w < 40 or plot_h < 30:
+            canvas.create_text(
+                w / 2,
+                h / 2,
+                text=self._t("gui_fr_empty"),
+                fill="#888",
+                font=("", 11),
+            )
+            return
+
+        series = self._fr_curve_arrays()
+        if series is None:
+            canvas.create_text(
+                w / 2,
+                h / 2,
+                text=self._t("gui_fr_empty"),
+                fill="#888",
+                font=("", 11),
+            )
+            return
+
+        try:
+            import math
+            import numpy as np
+        except Exception:
+            return
+
+        freqs, src, tgt, sim = series
+        fmin, fmax = 20.0, 20000.0
+        log_min = math.log10(fmin)
+        log_span = math.log10(fmax) - log_min
+
+        mag_stack = np.concatenate([src, tgt, sim])
+        mag_stack = mag_stack[np.isfinite(mag_stack)]
+        if mag_stack.size == 0:
+            canvas.create_text(
+                w / 2, h / 2, text=self._t("gui_fr_empty"), fill="#888", font=("", 11)
+            )
+            return
+        ymin = float(np.min(mag_stack)) - 3.0
+        ymax = float(np.max(mag_stack)) + 3.0
+        if ymax - ymin < 8.0:
+            mid = 0.5 * (ymin + ymax)
+            ymin, ymax = mid - 4.0, mid + 4.0
+
+        def x_of(freq: float) -> float:
+            f = min(max(freq, fmin), fmax)
+            return pad_l + (math.log10(f) - log_min) / log_span * plot_w
+
+        def y_of(mag: float) -> float:
+            return pad_t + (ymax - mag) / (ymax - ymin) * plot_h
+
+        # 背景与网格
+        canvas.create_rectangle(
+            pad_l, pad_t, pad_l + plot_w, pad_t + plot_h,
+            fill="#ffffff", outline="#e5e7eb",
+        )
+        x_ticks = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
+        x_labels = {
+            20: "20",
+            50: "50",
+            100: "100",
+            200: "200",
+            500: "500",
+            1000: "1k",
+            2000: "2k",
+            5000: "5k",
+            10000: "10k",
+            20000: "20k",
+        }
+        if plot_w < 280:
+            x_ticks = [20, 100, 500, 2000, 10000, 20000]
+        for freq in x_ticks:
+            x = x_of(freq)
+            canvas.create_line(x, pad_t, x, pad_t + plot_h, fill="#eef0f3")
+            canvas.create_text(
+                x, pad_t + plot_h + 10, text=x_labels[freq], fill="#6b7280", font=("", 9)
+            )
+
+        step = 5.0
+        span = ymax - ymin
+        if span > 40:
+            step = 10.0
+        elif span < 16:
+            step = 2.0
+        mag0 = math.floor(ymin / step) * step
+        mag = mag0
+        while mag <= ymax + 1e-6:
+            y = y_of(mag)
+            if pad_t - 1 <= y <= pad_t + plot_h + 1:
+                canvas.create_line(pad_l, y, pad_l + plot_w, y, fill="#eef0f3")
+                canvas.create_text(
+                    pad_l - 6,
+                    y,
+                    text=f"{mag:.0f}",
+                    fill="#6b7280",
+                    font=("", 9),
+                    anchor="e",
+                )
+            mag += step
+        try:
+            canvas.create_text(
+                12, pad_t + plot_h / 2, text="dB", fill="#6b7280", font=("", 9), angle=90
+            )
+        except Exception:
+            canvas.create_text(14, pad_t + 8, text="dB", fill="#6b7280", font=("", 9))
+        canvas.create_text(
+            pad_l + plot_w / 2,
+            h - 8,
+            text="Hz",
+            fill="#6b7280",
+            font=("", 9),
+        )
+
+        colors = ("#2563eb", "#d97706", "#059669")
+        widths = (2.0, 2.0, 2.4)
+        for curve, color, width in zip((src, tgt, sim), colors, widths):
+            pts = []
+            for freq, mag_v in zip(freqs, curve):
+                if not np.isfinite(freq) or not np.isfinite(mag_v):
+                    continue
+                if freq < fmin or freq > fmax:
+                    continue
+                pts.append(x_of(float(freq)))
+                pts.append(y_of(float(mag_v)))
+            if len(pts) >= 4:
+                canvas.create_line(*pts, fill=color, width=width)
 
     def _log(self, msg: str) -> None:
         self.log_q.put(msg if msg.endswith("\n") else msg + "\n")
@@ -1577,7 +1852,8 @@ class CosplayApp:
                 self.root.after(0, lambda: on_done(res, None))
             except Exception as exc:
                 tb = traceback.format_exc()
-                self.root.after(0, lambda: on_done(None, f"{exc}\n{tb}"))
+                err_text = f"{exc}\n{tb}"
+                self.root.after(0, lambda text=err_text: on_done(None, text))
 
         threading.Thread(target=target, daemon=True).start()
 
@@ -1597,7 +1873,8 @@ class CosplayApp:
                 self.root.after(0, lambda: self._job_finish(on_done, res, None))
             except Exception as exc:
                 tb = traceback.format_exc()
-                self.root.after(0, lambda: self._job_finish(on_done, None, f"{exc}\n{tb}"))
+                err_text = f"{exc}\n{tb}"
+                self.root.after(0, lambda text=err_text: self._job_finish(on_done, None, text))
 
         threading.Thread(target=target, daemon=True).start()
         return True

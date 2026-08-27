@@ -54,12 +54,12 @@ PEQ values can be copied into Equalizer APO, Wavelet, etc. **Full residual accur
 
 ## Features
 
-- **AutoEq integration** — live `INDEX.md`, fuzzy matching, provider selection (oratory1990, Rtings, …)
+- **AutoEq integration** — live `INDEX.md`, fuzzy matching, provider selection (oratory1990, Rtings, …); if a lab has no FR CSV, fall back to another provider and GitHub CDNs
 - **10-band IIR fit** — residual-driven placement, joint optimize of gain / fc / Q, perceptual weights, soft regularization for less “surgical” Q
 - **FIR residual stage** — replaces aggressive multi-band IIR “precision” mode; CamillaDSP `Conv` + mono float WAVs
 - **Pre-amp modes** — safe / moderate / custom / none (from combined response peak)
 - **CamillaDSP deploy** — YAML under `presets/`, FIR WAVs beside config, **single-instance** engine (stops existing `camilladsp` only when needed, then notifies)
-- **GUI + CLI** — responsive Tkinter UI or terminal workflow
+- **GUI + CLI** — Tkinter UI with source / target / simulated FR overlay, or terminal workflow
 - **i18n** — English / 中文 / 日本語
 - **Clean tree** — `presets/` for configs, `logs/` for all runtime logs
 

@@ -54,12 +54,12 @@ PEQ 参数可填入 Equalizer APO、Wavelet 等。**启用 FIR 时的完整残�
 
 ## 功能特性
 
-- **对接 AutoEq** — 在线 `INDEX.md`、模糊匹配、多数据源（oratory1990、Rtings 等）  
+- **对接 AutoEq** — 在线 `INDEX.md`、模糊匹配、多数据源（oratory1990、Rtings 等）；某实验室没有频响 CSV 时自动改用其他来源与 GitHub CDN  
 - **10 段 IIR 拟合** — 残差驱动布点，联合优化 gain / fc / Q，感知加权与软约束  
 - **FIR 残差级** — 不再用“堆很多段 IIR”当精确模式；CamillaDSP `Conv` + 单声道 float WAV  
 - **前级增益** — 安全 / 折中 / 自定义 / 不调整（依据联合响应峰值）  
 - **CamillaDSP 部署** — 方案在 `presets/`，FIR WAV 与配置同目录，**单实例**引擎（仅在真正停掉旧进程时提示）  
-- **GUI + CLI** — Tkinter 界面或终端流程  
+- **GUI + CLI** — Tkinter 界面含当前 / 目标 / 模拟后频响曲线，或终端流程  
 - **多语言** — 英语 / 中文 / 日语  
 - **目录清晰** — `presets/` 存方案，`logs/` 存日志  
 

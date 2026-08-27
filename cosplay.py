@@ -27,12 +27,12 @@ from scipy.io import wavfile as scipy_wavfile
 # --- 配置常量 ---
 GITHUB_RAW_INDEX_URL = "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/INDEX.md"
 
+# Prefix proxies: candidate = prefix + original URL (empty = direct).
+# Do not prefix full URLs with host-style clones like raw.kkgithub.com/.
+# ghproxy.net / ghp.ci currently fail TLS (expired cert / unexpected EOF).
 MIRROR_PREFIXES = [
-    "",                                    # 官方 GitHub（优先尝试）
-    "https://ghproxy.net/",
-    "https://ghp.ci/",
-    "https://mirror.ghproxy.com/",
-    "https://raw.kkgithub.com/",           # 保留作为备选
+    "",
+    "https://ghfast.top/",
 ]
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
@@ -256,6 +256,7 @@ MESSAGES = {
         "main_program_started": "[OK] Main program started.",
         "csv_url_not_found": "[WARN] No usable CSV URL for '{display_name}'. Try another model or place a file under offline_csvs.",
         "csv_download_failed_retry": "[WARN] Failed to download CSV for '{display_name}'. Try another model or use offline_csvs.",
+        "csv_provider_fallback": "[INFO] No frequency-response CSV under {requested}; using {actual} for '{display_name}'.",
         "capture_device_as_playback": "[WARN] '{user_input}' is a virtual capture device and cannot be used for playback. Falling back to '{default_name}'.",
         "camilladsp_exited_early": "process exited immediately with code {code}. Check capture/playback device names and sample rate.",
         "camilladsp_process_not_started": "process did not start",
@@ -304,6 +305,11 @@ MESSAGES = {
         "gui_deploy": "Deploy & start CamillaDSP",
         "gui_stop": "Stop engine",
         "gui_peq": "Recommended PEQ",
+        "gui_fr": "Frequency response",
+        "gui_fr_source": "Source",
+        "gui_fr_target": "Target",
+        "gui_fr_sim": "Simulated",
+        "gui_fr_empty": "Calculate to display frequency-response curves",
         "gui_log": "Log",
         "gui_tip": "Tip: 10-band IIR is portable; full residual accuracy needs CamillaDSP FIR convolution when enabled.",
         "gui_tip_header": "Info",
@@ -502,6 +508,7 @@ MESSAGES = {
         "main_program_started": "[OK] 主程序已启动。",
         "csv_url_not_found": "[WARN] 未能为耳机 '{display_name}' 找到可用 CSV。请尝试其他型号或放入 offline_csvs。",
         "csv_download_failed_retry": "[WARN] 下载耳机 '{display_name}' 的 CSV 失败。请尝试其他型号或使用 offline_csvs。",
+        "csv_provider_fallback": "[INFO] {requested} 的结果中没有频响 CSV，已改用 {actual}（{display_name}）。",
         "capture_device_as_playback": "[WARN] '{user_input}' 是虚拟采集设备，不能用作播放输出。已改用 '{default_name}'。",
         "camilladsp_exited_early": "进程立即退出，退出码 {code}。请检查采集/播放设备名称与采样率。",
         "camilladsp_process_not_started": "进程未能启动",
@@ -550,6 +557,11 @@ MESSAGES = {
         "gui_deploy": "部署并启动 CamillaDSP",
         "gui_stop": "停止引擎",
         "gui_peq": "推荐 PEQ",
+        "gui_fr": "频响曲线",
+        "gui_fr_source": "当前耳机",
+        "gui_fr_target": "目标耳机",
+        "gui_fr_sim": "模拟后",
+        "gui_fr_empty": "计算后显示频响曲线",
         "gui_log": "日志",
         "gui_tip": "提示：10 段 IIR 可填入其他均衡器；启用 FIR 时完整残差精度需 CamillaDSP 卷积。",
         "gui_tip_header": "提示与环境",
@@ -748,6 +760,7 @@ MESSAGES = {
         "main_program_started": "[OK] メインプログラムを起動しました。",
         "csv_url_not_found": "[WARN] '{display_name}' の CSV URL が見つかりません。別モデルまたは offline_csvs を使用してください。",
         "csv_download_failed_retry": "[WARN] '{display_name}' の CSV ダウンロードに失敗しました。",
+        "csv_provider_fallback": "[INFO] {requested} に周波数応答 CSV がないため、{actual} を使用します（{display_name}）。",
         "capture_device_as_playback": "[WARN] '{user_input}' はキャプチャ用です。デフォルト '{default_name}' に切り替えます。",
         "camilladsp_exited_early": "プロセスがすぐに終了（コード {code}）。デバイス名とサンプリングレートを確認してください。",
         "camilladsp_process_not_started": "プロセスを開始できませんでした",
@@ -796,6 +809,11 @@ MESSAGES = {
         "gui_deploy": "デプロイして CamillaDSP 起動",
         "gui_stop": "エンジン停止",
         "gui_peq": "推奨 PEQ",
+        "gui_fr": "周波数特性",
+        "gui_fr_source": "ソース",
+        "gui_fr_target": "ターゲット",
+        "gui_fr_sim": "シミュレーション",
+        "gui_fr_empty": "計算後に周波数特性を表示します",
         "gui_log": "ログ",
         "gui_tip": "ヒント: 10 バンド IIR は他 EQ でも利用可。FIR 有効時の残差精度には CamillaDSP 畳み込みが必要です。",
         "gui_tip_header": "情報",
@@ -1119,10 +1137,50 @@ def localized_print(message_id: str, **kwargs) -> None:
     print(style_text(text))
 
 
+def _unique_keep_order(items: list[str]) -> list[str]:
+    seen: set[str] = set()
+    out: list[str] = []
+    for item in items:
+        if item and item not in seen:
+            seen.add(item)
+            out.append(item)
+    return out
+
+
+def _mirror_candidates(url: str) -> list[str]:
+    """Build fetch candidates: original URL, GitHub raw CDNs, then prefix proxies."""
+    candidates = [url]
+    raw_root = "https://raw.githubusercontent.com/"
+    if url.startswith(raw_root):
+        rest = url[len(raw_root):]
+        parts = rest.split("/", 3)
+        if len(parts) == 4:
+            user, repo, branch, path = parts
+            candidates.append(f"https://cdn.jsdelivr.net/gh/{user}/{repo}@{branch}/{path}")
+            candidates.append(f"https://cdn.jsdmirror.com/gh/{user}/{repo}@{branch}/{path}")
+    for prefix in MIRROR_PREFIXES:
+        if prefix:
+            candidates.append(f"{prefix}{url}")
+    return _unique_keep_order(candidates)
+
+
+def _http_get_bytes(url: str, timeout: float) -> bytes:
+    request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        if 200 <= response.status < 300:
+            return response.read()
+        raise urllib.error.HTTPError(
+            url=response.url,
+            code=response.status,
+            msg=response.reason,
+            hdrs=response.headers,
+            fp=None,
+        )
+
+
 def fetch_url(url: str, timeout: float = 15.0, retries: int = 3, backoff_factor: float = 0.5) -> bytes:
-    """带有镜像加速回退机制的 URL 获取函数。"""
-    
-    # 1. 参数校验
+    """Fetch a URL. HTTPError is not treated as URLError. 404/410 do not walk dead mirrors."""
+
     if retries < 1:
         raise ValueError("retries 必须大于等于 1")
     if timeout <= 0:
@@ -1130,51 +1188,33 @@ def fetch_url(url: str, timeout: float = 15.0, retries: int = 3, backoff_factor:
     if backoff_factor < 0:
         raise ValueError("backoff_factor 不能为负数")
 
-    # 2. 安全性检查：防止 SSRF，仅允许 http 和 https
     parsed_url = urllib.parse.urlparse(url)
     if parsed_url.scheme not in ('http', 'https'):
         raise ValueError(f"不支持的 URL 协议: {parsed_url.scheme}. 仅支持 http 和 https.")
 
+    candidates = _mirror_candidates(url)
     last_exception: Exception | None = None
+    total = max(len(candidates), retries)
 
-    for attempt in range(1, retries + 1):
-        prefix_index = min(attempt - 1, len(MIRROR_PREFIXES) - 1)
-        prefix = MIRROR_PREFIXES[prefix_index]
-        candidate_url = f"{prefix}{url}" if prefix else url
-
+    for attempt, candidate_url in enumerate(candidates, start=1):
         try:
-            request = urllib.request.Request(candidate_url, headers={"User-Agent": USER_AGENT})
-            with urllib.request.urlopen(request, timeout=timeout) as response:
-                if 200 <= response.status < 300:
-                    return response.read()
-                else:
-                    raise urllib.error.HTTPError(
-                        url=response.url,
-                        code=response.status,
-                        msg=response.reason,
-                        hdrs=response.headers,
-                        fp=None
-                    )
-
-        except (urllib.error.HTTPError, urllib.error.URLError, TimeoutError, OSError) as exc:
+            return _http_get_bytes(candidate_url, timeout)
+        except urllib.error.HTTPError as exc:
             last_exception = exc
-            should_retry = False
-
-            if isinstance(exc, urllib.error.URLError):
-                should_retry = True
-            elif isinstance(exc, urllib.error.HTTPError):
-                if exc.code >= 500 or exc.code == 429:
-                    should_retry = True
-            elif isinstance(exc, (TimeoutError, OSError)):
-                should_retry = True
-
-            if not should_retry:
+            # Missing object: other CDNs of the same path will 404 too.
+            if exc.code in (404, 410):
                 break
-            if attempt >= retries:
+            if attempt >= len(candidates) or attempt >= total:
                 break
-
-            wait_time = backoff_factor * (2 ** (attempt - 1))
-            localized_print('retry_request', exc=exc, wait_time=wait_time, attempt=attempt, retries=retries)
+            wait_time = min(backoff_factor * (2 ** (attempt - 1)), 2.0)
+            localized_print('retry_request', exc=exc, wait_time=wait_time, attempt=attempt, retries=len(candidates))
+            time.sleep(wait_time)
+        except (urllib.error.URLError, TimeoutError, OSError) as exc:
+            last_exception = exc
+            if attempt >= len(candidates) or attempt >= total:
+                break
+            wait_time = min(backoff_factor * (2 ** (attempt - 1)), 2.0)
+            localized_print('retry_request', exc=exc, wait_time=wait_time, attempt=attempt, retries=len(candidates))
             time.sleep(wait_time)
 
     if last_exception is not None:
@@ -1762,52 +1802,125 @@ def find_headphone(user_input: str, prompt_type: str = "目标") -> dict | None:
 
 # --- 文件下载与解析 ---
 
+def _normalize_repo_rel(relative_path: str) -> str:
+    decoded = urllib.parse.unquote(relative_path or "").replace("\\", "/").strip()
+    if decoded.startswith("./"):
+        decoded = decoded[2:]
+    return decoded.strip("/")
+
+
+def _form_from_rig(form_rig: str) -> str:
+    low = (form_rig or "").lower()
+    if "over-ear" in low or "over_ear" in low:
+        return "over-ear"
+    if "earbud" in low:
+        return "earbud"
+    if "in-ear" in low or "in_ear" in low:
+        return "in-ear"
+    return form_rig
+
+
+def _csv_repo_relpaths(relative_path: str, display_name: str) -> list[str]:
+    """AutoEq result folders are directories; CSV is `{folder}/{folder}.csv`.
+
+    Some sources (notably crinacle) omit that CSV. Fall back to measurements/.
+    """
+    rel = _normalize_repo_rel(relative_path)
+    if not rel:
+        return []
+
+    paths: list[str] = []
+
+    def add(path: str) -> None:
+        path = path.replace("\\", "/").lstrip("/")
+        if path and path not in paths:
+            paths.append(path)
+
+    if rel.lower().endswith(".csv"):
+        if rel.startswith("results/") or rel.startswith("measurements/") or rel.startswith("offline_csvs/"):
+            add(rel)
+        else:
+            add(f"results/{rel}")
+        return paths
+
+    folder = rel.rsplit("/", 1)[-1]
+    names: list[str] = []
+    for name in (folder, display_name or ""):
+        name = (name or "").strip()
+        if name and name not in names:
+            names.append(name)
+
+    for name in names:
+        add(f"results/{rel}/{name}.csv")
+
+    parts = rel.split("/")
+    if len(parts) >= 3:
+        source, form_rig = parts[0], parts[1]
+        form = _form_from_rig(form_rig)
+        for name in names:
+            add(f"measurements/{source}/data/{form}/{name}.csv")
+            add(f"measurements/{source}/data/{form_rig}/{name}.csv")
+            if "711" in form_rig:
+                add(f"measurements/{source}/data/{form}/711/{name}.csv")
+
+    return paths
+
+
+def _autoeq_raw_url(repo_relpath: str) -> str:
+    quoted = urllib.parse.quote(repo_relpath.lstrip("/"), safe="/")
+    return f"https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/{quoted}"
+
+
+def _looks_like_fr_csv(data: bytes) -> bool:
+    if not data or len(data) < 16 or b"\x00" in data[:512]:
+        return False
+    text = data[:4096].decode("utf-8", errors="replace")
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.strip().startswith("#")]
+    if not lines:
+        return False
+    first = lines[0].lower()
+    if "frequency" in first or first.startswith("freq"):
+        return True
+    for line in lines[:8]:
+        fields = re.split(r"[,;\t ]+", line)
+        if len(fields) < 2:
+            continue
+        try:
+            float(fields[0])
+            float(fields[1])
+            return True
+        except ValueError:
+            continue
+    return False
+
+
+def _provider_entry_candidates(entry: dict) -> list[dict]:
+    """Selected provider first, then other INDEX providers for the same model."""
+    ordered = [entry]
+    key = (entry.get("display_name") or "").strip().lower()
+    if not key:
+        return ordered
+    for other in AUTOEQ_DATABASE.get(key) or []:
+        if other.get("relative_path") != entry.get("relative_path"):
+            ordered.append(other)
+    return ordered
+
+
 def find_best_csv_url(relative_path: str, display_name: str) -> str | None:
-    """尽量从多个候选地址中找到可访问的 CSV 下载链接，避免 404/403 直接失败。"""
+    """Resolve a downloadable AutoEq frequency-response CSV (result or measurement)."""
     if not relative_path:
         return None
-
     try:
-        decoded_path = urllib.parse.unquote(relative_path)
-        safe_path = urllib.parse.quote(decoded_path, safe="/")
-        retries = len(MIRROR_PREFIXES) + 1
-
-        # 1) 先尝试 GitHub Contents API（如果可用，能拿到更准确的文件记录）
-        api_url = f"https://api.github.com/repos/jaakkopasanen/AutoEq/contents/results/{safe_path}"
-        try:
-            api_bytes = fetch_url(api_url, timeout=25.0, retries=retries, backoff_factor=1.0)
-            api_payload = json.loads(api_bytes.decode("utf-8", errors="replace"))
-            if isinstance(api_payload, list):
-                for item in api_payload:
-                    if not isinstance(item, dict):
-                        continue
-                    item_name = item.get("name", "")
-                    if isinstance(item_name, str) and item_name.lower().endswith(".csv"):
-                        download_url = item.get("download_url")
-                        if isinstance(download_url, str) and download_url.startswith("http"):
-                            return download_url
-        except Exception:
-            pass
-
-        # 2) 失败后，回退到多种 raw URL 模式
-        raw_candidates = [
-            f"https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/{safe_path}",
-            f"https://raw.kkgithub.com/jaakkopasanen/AutoEq/master/results/{safe_path}",
-            f"https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/{decoded_path}",
-            f"https://raw.kkgithub.com/jaakkopasanen/AutoEq/master/results/{decoded_path}",
-        ]
-
-        for candidate_url in raw_candidates:
+        for repo_rel in _csv_repo_relpaths(relative_path, display_name):
+            url = _autoeq_raw_url(repo_rel)
             try:
-                candidate_bytes = fetch_url(candidate_url, timeout=25.0, retries=retries, backoff_factor=1.0)
-                if candidate_bytes and len(candidate_bytes) > 0:
-                    return candidate_url
+                data = fetch_url(url, timeout=20.0, retries=1, backoff_factor=0.3)
             except Exception:
                 continue
-
-        localized_print('no_csv_in_dir', directory=decoded_path)
+            if _looks_like_fr_csv(data):
+                return url
+        localized_print('no_csv_in_dir', directory=_normalize_repo_rel(relative_path))
         return None
-
     except Exception as exc:
         localized_print('cannot_access_dir', path=relative_path, error=exc)
         return None
@@ -1817,13 +1930,29 @@ def download_file(download_url: str, dest_path: Path) -> bool:
     """下载文件到指定路径。失败返回 False，允许上层友好处理。"""
     try:
         localized_print('downloading_file', filename=dest_path.name)
-        retries = len(MIRROR_PREFIXES) + 1
-        data = fetch_url(download_url, timeout=25.0, retries=retries, backoff_factor=1.0)
+        data = fetch_url(download_url, timeout=25.0, retries=max(len(MIRROR_PREFIXES), 1), backoff_factor=0.5)
         dest_path.write_bytes(data)
         return True
     except Exception as exc:
         localized_print('download_failed', error=exc)
         return False
+
+
+def _try_write_csv_from_entry(entry: dict, dest_path: Path) -> bool:
+    relative_path = entry.get("relative_path") or ""
+    display_name = entry.get("display_name") or dest_path.stem
+    for repo_rel in _csv_repo_relpaths(relative_path, display_name):
+        url = _autoeq_raw_url(repo_rel)
+        try:
+            data = fetch_url(url, timeout=20.0, retries=1, backoff_factor=0.3)
+        except Exception:
+            continue
+        if not _looks_like_fr_csv(data):
+            continue
+        localized_print('downloading_file', filename=dest_path.name)
+        dest_path.write_bytes(data)
+        return True
+    return False
 
 
 def download_headphone_csv(entry: dict, temp_dir: Path) -> Path | None:
@@ -1837,7 +1966,7 @@ def download_headphone_csv(entry: dict, temp_dir: Path) -> Path | None:
         return None
 
     normalized_rel = relative_path.replace('\\', '/')
-    local_path = Path(normalized_rel)
+    local_path = Path(urllib.parse.unquote(normalized_rel))
     if local_path.is_file():
         localized_print('using_local_csv', path=local_path)
         return local_path
@@ -1846,18 +1975,25 @@ def download_headphone_csv(entry: dict, temp_dir: Path) -> Path | None:
         localized_print('offline_csv_missing', path=local_path)
         return None
 
-    csv_url = find_best_csv_url(relative_path, entry["display_name"])
-    if not csv_url:
-        localized_print('csv_url_not_found', display_name=entry['display_name'])
-        return None
-
     safe_name = re.sub(r'[^\w\-_\.]', '_', entry["display_name"])
     dest_path = temp_dir / f"{safe_name}.csv"
-    
-    if download_file(csv_url, dest_path):
-        return dest_path
 
-    localized_print('csv_download_failed_retry', display_name=entry['display_name'])
+    requested_provider = entry.get("provider") or extract_provider_label(relative_path)
+    for candidate in _provider_entry_candidates(entry):
+        if _try_write_csv_from_entry(candidate, dest_path):
+            used_provider = candidate.get("provider") or extract_provider_label(candidate.get("relative_path", ""))
+            if candidate.get("relative_path") != entry.get("relative_path"):
+                localized_print(
+                    'csv_provider_fallback',
+                    requested=requested_provider,
+                    actual=used_provider,
+                    display_name=entry["display_name"],
+                )
+                entry["relative_path"] = candidate.get("relative_path", entry.get("relative_path"))
+                entry["provider"] = used_provider
+            return dest_path
+
+    localized_print('csv_url_not_found', display_name=entry['display_name'])
     return None
 
 
@@ -2753,6 +2889,9 @@ def calculate_correction(
         "delta_raw": delta_raw,
         "delta_aligned": delta_aligned,
         "combined_resp": combined_resp,
+        "peq_resp": peq_resp,
+        "source_fr": np.array(source_interp, copy=True),
+        "target_fr": np.array(source_interp + delta_aligned, copy=True),
     }
 
 
