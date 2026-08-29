@@ -78,6 +78,30 @@ PEQ values can be copied into Equalizer APO, Wavelet, etc. **Full residual accur
 
 ## Quick start
 
+### Packaged apps
+
+Prebuilt binaries (no Python install required):
+
+| Platform | Artifact | How to build |
+|----------|----------|--------------|
+| **macOS** | `dist/EQ-Cosplay-macOS.dmg` | `bash packaging/build_macos.sh` |
+| **Windows** | `dist/EQCosplay.exe` | `packaging\build_windows.bat` (on Windows) or the GitHub Action **Build apps** |
+
+The DMG contains `EQ Cosplay.app`. Drag it to **Applications**. On first launch macOS may ask to open an unsigned app: **System Settings → Privacy & Security → Open Anyway**.
+
+The Windows EXE is a windowed onefile build. Saved presets and logs go to `%APPDATA%\EQ Cosplay\`. On macOS they go to `~/Library/Application Support/EQ Cosplay/`, and existing YAML in `~/Desktop/eq_cosplay/presets` is still listed.
+
+### macOS menu bar
+
+On macOS the app also installs an **EQ** extra in the right side of the menu bar. Click it to:
+
+- see whether CamillaDSP is running
+- switch any locally saved preset (the YAML files under `presets/`)
+- show / hide the main window
+- stop the engine or quit
+
+Closing the main window **does not quit** — the engine keeps running and the extra stays in the menu bar. Choose **Quit EQ Cosplay** from the extra (or Cmd-Q) to exit.
+
 ### Launchers
 
 | Platform | GUI | Terminal |
@@ -152,7 +176,12 @@ python cosplay_gui.py              # GUI
 ```text
 eq_cosplay/
 ├── cosplay.py           # Core: AutoEq, PEQ/FIR, CamillaDSP YAML & process control
-├── cosplay_gui.py       # Tkinter frontend
+├── cosplay_gui.py       # Tkinter frontend (EchoCR visual language)
+├── theme.py             # Dark theme, FangXinShu + JetBrains Mono
+├── menubar_macos.py     # macOS status-bar extra for local presets
+├── assets/              # Fonts and icons
+├── eq_cosplay.spec      # PyInstaller spec (app / exe)
+├── packaging/           # DMG / EXE build scripts
 ├── start.command        # macOS/Linux bootstrap + GUI
 ├── start_cli.command    # macOS/Linux CLI
 ├── start.bat            # Windows bootstrap + GUI

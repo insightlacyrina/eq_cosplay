@@ -20,6 +20,11 @@ venv/
 ENV/
 env/
 
+# Packaged apps (rebuild with packaging/build_*.sh)
+packaging/*.icns
+packaging/*.ico
+packaging/*.iconset/
+
 # --- Project runtime / generated ---
 # Virtual env & local engine binary (downloaded per machine)
 camilladsp

@@ -115,6 +115,16 @@ except Exception as _cp_import_err:  # pragma: no cover
     )
     raise SystemExit(1) from _cp_import_err
 
+try:
+    import theme as ui_theme
+except Exception as _theme_import_err:  # pragma: no cover
+    _show_startup_error(
+        "EQ Cosplay",
+        "Failed to import UI theme.\n\n"
+        f"{_theme_import_err}",
+    )
+    raise SystemExit(1) from _theme_import_err
+
 
 # ---------------------------------------------------------------------------
 # 日志重定向
@@ -188,6 +198,10 @@ def ask_provider(parent, entries: list[dict]) -> dict:
     win = Toplevel(parent)
     title = (cp.translate("provider_list_header") or "Provider").strip().lstrip("\n")
     win.title(title or "Provider")
+    try:
+        win.configure(bg=ui_theme.BG)
+    except Exception:
+        pass
     try:
         win.transient(parent)
     except Exception:
@@ -331,6 +345,8 @@ class CosplayApp:
         self.root.title(cp.translate("gui_window_title"))
         self.root.geometry("1080x780")
         self.root.minsize(760, 560)
+        self._theme = {}
+        self._menubar = None
 
         self.log_q: queue.Queue = queue.Queue()
         self._stdout_backup = sys.stdout
@@ -410,40 +426,33 @@ class CosplayApp:
     # ----- 布局 -----
 
     def _build_ui(self) -> None:
-        style = ttk.Style()
-        # Windows: prefer native themes; clam is a portable fallback
-        theme_candidates: list[str]
-        if self.system_name == "Darwin":
-            theme_candidates = ["aqua", "clam"]
-        elif self.system_name == "Windows":
-            theme_candidates = ["vista", "xpnative", "winnative", "clam", "default"]
-        else:
-            theme_candidates = ["clam", "alt", "default"]
-        for name in theme_candidates:
-            try:
-                style.theme_use(name)
-                break
-            except Exception:
-                continue
+        self._theme = ui_theme.apply(self.root)
 
-        self.outer = ttk.Frame(self.root, padding=8)
+        self.outer = ttk.Frame(self.root, padding=(20, 16, 20, 16), style="TFrame")
         self.outer.pack(fill=BOTH, expand=True)
         self.outer.rowconfigure(1, weight=1)
         self.outer.columnconfigure(0, weight=1)
 
-        # 顶栏
-        top = ttk.Frame(self.outer)
-        top.grid(row=0, column=0, sticky="ew", pady=(0, 6))
+        # EchoCR-style top bar: gold mark + title | status pill + language
+        top = ttk.Frame(self.outer, style="Top.TFrame")
+        top.grid(row=0, column=0, sticky="ew", pady=(0, 12))
         top.columnconfigure(1, weight=1)
 
-        self.lbl_title = ttk.Label(top, text="EQ Cosplay", font=("", 16, "bold"))
-        self.lbl_title.grid(row=0, column=0, sticky="w")
-        self.lbl_status = ttk.Label(top, textvariable=self.var_status, foreground="#555")
+        brand = ttk.Frame(top, style="Top.TFrame")
+        brand.grid(row=0, column=0, sticky="w")
+        self.mark = ui_theme.make_mark(brand, text="EQ", size=44)
+        self.mark.pack(side=LEFT, padx=(0, 14))
+        self.lbl_title = ttk.Label(brand, text="EQ Cosplay", style="Title.TLabel")
+        self.lbl_title.pack(side=LEFT)
+
+        self.lbl_status = ttk.Label(
+            top, textvariable=self.var_status, style="Pill.TLabel", anchor="e"
+        )
         self.lbl_status.grid(row=0, column=1, sticky="e", padx=(8, 8))
 
-        lang_fr = ttk.Frame(top)
+        lang_fr = ttk.Frame(top, style="Top.TFrame")
         lang_fr.grid(row=0, column=2, sticky="e")
-        self.lbl_lang = ttk.Label(lang_fr, text="")
+        self.lbl_lang = ttk.Label(lang_fr, text="", style="Muted.TLabel")
         self.lbl_lang.pack(side=LEFT, padx=(0, 4))
         self.lang_combo = ttk.Combobox(
             lang_fr,
@@ -492,7 +501,12 @@ class CosplayApp:
         mid.columnconfigure(0, weight=1)
 
         self.left_mid = mid  # 可滚动区域（Canvas + 滚动条），供触控板命中检测
-        self.left_canvas = Canvas(mid, highlightthickness=0, borderwidth=0)
+        self.left_canvas = Canvas(
+            mid,
+            highlightthickness=0,
+            borderwidth=0,
+            background=ui_theme.BG,
+        )
         # 显式包装 yview，避免部分 macOS/ttk 主题下滚动条拖动方向异常
         self.left_vsb = ttk.Scrollbar(
             mid, orient=VERTICAL, command=self._left_scrollbar_command
@@ -520,19 +534,25 @@ class CosplayApp:
         self.lbl_tip = ttk.Label(
             tip_box,
             textvariable=self.var_tip,
-            foreground="#444",
+            style="Muted.TLabel",
             justify=LEFT,
             anchor="w",
         )
         self.lbl_tip.grid(row=0, column=0, sticky="ew")
 
-        self.lbl_platform = ttk.Label(tip_box, text="", foreground="#666", justify=LEFT, anchor="w")
+        self.lbl_platform = ttk.Label(
+            tip_box, text="", style="Muted.TLabel", justify=LEFT, anchor="w"
+        )
         self.lbl_platform.grid(row=1, column=0, sticky="ew", pady=(6, 0))
 
-        self.lbl_capture = ttk.Label(tip_box, text="", foreground="#666", justify=LEFT, anchor="w")
+        self.lbl_capture = ttk.Label(
+            tip_box, text="", style="Muted.TLabel", justify=LEFT, anchor="w"
+        )
         self.lbl_capture.grid(row=2, column=0, sticky="ew", pady=(2, 0))
 
-        self.lbl_logs = ttk.Label(tip_box, text="", foreground="#666", justify=LEFT, anchor="w")
+        self.lbl_logs = ttk.Label(
+            tip_box, text="", style="Muted.TLabel", justify=LEFT, anchor="w"
+        )
         self.lbl_logs.grid(row=3, column=0, sticky="ew", pady=(2, 0))
 
         tip_box.bind("<Configure>", self._on_tip_configure, add="+")
@@ -548,9 +568,13 @@ class CosplayApp:
         self.preset_combo.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         pbtn = ttk.Frame(self.frm_presets)
         pbtn.grid(row=1, column=0, sticky="ew")
-        self.btn_refresh = ttk.Button(pbtn, text="", command=self._refresh_presets)
+        self.btn_refresh = ttk.Button(
+            pbtn, text="", command=self._refresh_presets, style="Ghost.TButton"
+        )
         self.btn_refresh.pack(side=LEFT)
-        self.btn_load_preset = ttk.Button(pbtn, text="", command=self._load_preset)
+        self.btn_load_preset = ttk.Button(
+            pbtn, text="", command=self._load_preset, style="Gold.TButton"
+        )
         self.btn_load_preset.pack(side=LEFT, padx=4)
 
         # Cosplay 表单
@@ -620,17 +644,19 @@ class CosplayApp:
         bf = ttk.Frame(parent)
         bf.grid(row=4, column=0, sticky="ew", pady=8)
         bf.columnconfigure(0, weight=1)
-        self.btn_calc = ttk.Button(bf, text="", command=self._on_calculate)
+        self.btn_calc = ttk.Button(
+            bf, text="", command=self._on_calculate, style="Primary.TButton"
+        )
         self.btn_calc.grid(row=0, column=0, sticky="ew", pady=2)
         self.btn_deploy = ttk.Button(
-            bf, text="", command=self._on_deploy, state=DISABLED
+            bf, text="", command=self._on_deploy, state=DISABLED, style="Primary.TButton"
         )
         self.btn_deploy.grid(row=1, column=0, sticky="ew", pady=2)
         self.btn_stop = ttk.Button(bf, text="", command=self._on_stop, state=DISABLED)
         self.btn_stop.grid(row=2, column=0, sticky="ew", pady=2)
         # 与「计算校正」等同宽全宽按钮，避免小窗口挤占绿色 FIR 文案
         self.btn_stop_fir = ttk.Button(
-            bf, text="", command=self._on_toggle_fir, state=DISABLED
+            bf, text="", command=self._on_toggle_fir, state=DISABLED, style="Ghost.TButton"
         )
         self.btn_stop_fir.grid(row=3, column=0, sticky="ew", pady=2)
 
@@ -669,9 +695,9 @@ class CosplayApp:
         legend = ttk.Frame(hdr)
         legend.grid(row=0, column=0, sticky="nw")
         self._fr_legend = legend
-        self.lbl_fr_src = ttk.Label(legend, text="", foreground="#2563eb")
-        self.lbl_fr_tgt = ttk.Label(legend, text="", foreground="#d97706")
-        self.lbl_fr_sim = ttk.Label(legend, text="", foreground="#059669")
+        self.lbl_fr_src = ttk.Label(legend, text="", style="Teal.TLabel")
+        self.lbl_fr_tgt = ttk.Label(legend, text="", style="Gold.TLabel")
+        self.lbl_fr_sim = ttk.Label(legend, text="", style="Ok.TLabel")
         self.lbl_fr_src.pack(side=LEFT, padx=(0, 12))
         self.lbl_fr_tgt.pack(side=LEFT, padx=(0, 12))
         self.lbl_fr_sim.pack(side=LEFT)
@@ -683,7 +709,7 @@ class CosplayApp:
         self.lbl_fir = ttk.Label(
             meta,
             textvariable=self.var_fir,
-            foreground="#0a6",
+            style="Ok.TLabel",
             justify=RIGHT,
             anchor="e",
         )
@@ -691,7 +717,7 @@ class CosplayApp:
         self.lbl_metrics = ttk.Label(
             meta,
             textvariable=self.var_metrics,
-            foreground="#555",
+            style="Muted.TLabel",
             justify=RIGHT,
             anchor="e",
         )
@@ -701,7 +727,7 @@ class CosplayApp:
             self.frm_fr,
             highlightthickness=0,
             borderwidth=0,
-            background="#fbfbfc",
+            background=ui_theme.PLOT_FACE,
         )
         self.fr_canvas.grid(row=1, column=0, sticky="nsew")
         self.fr_canvas.bind("<Configure>", self._on_fr_canvas_configure)
@@ -712,9 +738,10 @@ class CosplayApp:
         self.frm_log.grid(row=2, column=0, sticky="nsew")
         self.frm_log.rowconfigure(0, weight=1)
         self.frm_log.columnconfigure(0, weight=1)
-        font = ("Menlo", 11) if self.system_name == "Darwin" else ("Consolas", 10)
-        self.log = ScrolledText(self.frm_log, wrap=WORD, font=font, height=6)
+        mono = self._theme.get("mono12") or ("JetBrains Mono", 12)
+        self.log = ScrolledText(self.frm_log, wrap=WORD, font=mono, height=6)
         self.log.grid(row=0, column=0, sticky="nsew")
+        ui_theme.style_log_widget(self.log, mono)
         self.log.configure(state=DISABLED)
 
     # ----- 自适应 -----
@@ -1294,6 +1321,14 @@ class CosplayApp:
             self.var_status.set(self._t(self._status_key, **self._status_kwargs))
         except Exception:
             self.var_status.set(self._status_key)
+        try:
+            if hasattr(self, "lbl_status"):
+                self.lbl_status.configure(
+                    style=ui_theme.pill_style_for_status(self._status_key)
+                )
+        except Exception:
+            pass
+        self._rebuild_menubar()
 
     def _config_path_for_fir(self) -> Path | None:
         """当前可用于 FIR 开关的 YAML 路径（计算结果或最近部署/加载的预设）。"""
@@ -1653,8 +1688,8 @@ class CosplayApp:
                 w / 2,
                 h / 2,
                 text=self._t("gui_fr_empty"),
-                fill="#888",
-                font=("", 11),
+                fill=ui_theme.MUTED,
+                font=self._theme.get("ui12") or ("", 11),
             )
             return
 
@@ -1664,8 +1699,8 @@ class CosplayApp:
                 w / 2,
                 h / 2,
                 text=self._t("gui_fr_empty"),
-                fill="#888",
-                font=("", 11),
+                fill=ui_theme.MUTED,
+                font=self._theme.get("ui12") or ("", 11),
             )
             return
 
@@ -1684,7 +1719,11 @@ class CosplayApp:
         mag_stack = mag_stack[np.isfinite(mag_stack)]
         if mag_stack.size == 0:
             canvas.create_text(
-                w / 2, h / 2, text=self._t("gui_fr_empty"), fill="#888", font=("", 11)
+                w / 2,
+                h / 2,
+                text=self._t("gui_fr_empty"),
+                fill=ui_theme.MUTED,
+                font=self._theme.get("ui12") or ("", 11),
             )
             return
         ymin = float(np.min(mag_stack)) - 3.0
@@ -1700,10 +1739,10 @@ class CosplayApp:
         def y_of(mag: float) -> float:
             return pad_t + (ymax - mag) / (ymax - ymin) * plot_h
 
-        # 背景与网格
+        # 背景与网格（EchoCR dark panel）
         canvas.create_rectangle(
             pad_l, pad_t, pad_l + plot_w, pad_t + plot_h,
-            fill="#ffffff", outline="#e5e7eb",
+            fill=ui_theme.PLOT_FACE, outline=ui_theme.LINE,
         )
         x_ticks = [20, 50, 100, 200, 500, 1000, 2000, 5000, 10000, 20000]
         x_labels = {
@@ -1722,9 +1761,13 @@ class CosplayApp:
             x_ticks = [20, 100, 500, 2000, 10000, 20000]
         for freq in x_ticks:
             x = x_of(freq)
-            canvas.create_line(x, pad_t, x, pad_t + plot_h, fill="#eef0f3")
+            canvas.create_line(x, pad_t, x, pad_t + plot_h, fill=ui_theme.PLOT_GRID)
             canvas.create_text(
-                x, pad_t + plot_h + 10, text=x_labels[freq], fill="#6b7280", font=("", 9)
+                x,
+                pad_t + plot_h + 10,
+                text=x_labels[freq],
+                fill=ui_theme.MUTED,
+                font=self._theme.get("ui11") or ("", 9),
             )
 
         step = 5.0
@@ -1738,31 +1781,39 @@ class CosplayApp:
         while mag <= ymax + 1e-6:
             y = y_of(mag)
             if pad_t - 1 <= y <= pad_t + plot_h + 1:
-                canvas.create_line(pad_l, y, pad_l + plot_w, y, fill="#eef0f3")
+                canvas.create_line(pad_l, y, pad_l + plot_w, y, fill=ui_theme.PLOT_GRID)
                 canvas.create_text(
                     pad_l - 6,
                     y,
                     text=f"{mag:.0f}",
-                    fill="#6b7280",
-                    font=("", 9),
+                    fill=ui_theme.MUTED,
+                    font=self._theme.get("ui11") or ("", 9),
                     anchor="e",
                 )
             mag += step
+        axis_font = self._theme.get("ui11") or ("", 9)
         try:
             canvas.create_text(
-                12, pad_t + plot_h / 2, text="dB", fill="#6b7280", font=("", 9), angle=90
+                12,
+                pad_t + plot_h / 2,
+                text="dB",
+                fill=ui_theme.MUTED,
+                font=axis_font,
+                angle=90,
             )
         except Exception:
-            canvas.create_text(14, pad_t + 8, text="dB", fill="#6b7280", font=("", 9))
+            canvas.create_text(
+                14, pad_t + 8, text="dB", fill=ui_theme.MUTED, font=axis_font
+            )
         canvas.create_text(
             pad_l + plot_w / 2,
             h - 8,
             text="Hz",
-            fill="#6b7280",
-            font=("", 9),
+            fill=ui_theme.MUTED,
+            font=axis_font,
         )
 
-        colors = ("#2563eb", "#d97706", "#059669")
+        colors = (ui_theme.PLOT_SRC, ui_theme.PLOT_TGT, ui_theme.PLOT_SIM)
         widths = (2.0, 2.0, 2.4)
         for curve, color, width in zip((src, tgt, sim), colors, widths):
             pts = []
@@ -1842,6 +1893,7 @@ class CosplayApp:
             self.preset_combo.current(0)
         else:
             self.preset_combo.set("")
+        self._rebuild_menubar()
 
     # ----- 后台任务 -----
 
@@ -2533,6 +2585,7 @@ class CosplayApp:
             self.btn_stop.configure(state=DISABLED)
             self._set_status_key("gui_status_exited")
             self.engine_proc = None
+            self._rebuild_menubar()
             return
         self.root.after(800, self._watch_engine)
 
@@ -2544,6 +2597,7 @@ class CosplayApp:
         self.btn_stop.configure(state=DISABLED)
         self._set_status_key("gui_status_stopped")
         self._log(self._t("gui_engine_stopped"))
+        self._rebuild_menubar()
 
     # ----- 预设 -----
 
@@ -2621,9 +2675,90 @@ class CosplayApp:
 
         self._run_job(worker, self._on_deploy_done, "gui_status_preset")
 
-    # ----- 关闭 -----
+    # ----- 菜单栏 / 窗口生命周期 -----
+
+    def _install_menubar(self) -> None:
+        if sys.platform != "darwin":
+            return
+        try:
+            import menubar_macos
+        except Exception:
+            return
+        self._menubar = menubar_macos.install(self)
+        if self._menubar is None:
+            return
+        try:
+            self.root.createcommand("tk::mac::Quit", self._quit_app)
+        except Exception:
+            pass
+        try:
+            self.root.createcommand("tk::mac::ReopenApplication", self._show_window)
+        except Exception:
+            pass
+
+    def _rebuild_menubar(self) -> None:
+        bar = getattr(self, "_menubar", None)
+        if bar is None:
+            return
+        try:
+            bar.rebuild()
+        except Exception:
+            pass
+
+    def _show_window(self, *_args) -> None:
+        try:
+            self.root.deiconify()
+            self.root.lift()
+            self.root.focus_force()
+        except Exception:
+            pass
+        if sys.platform == "darwin":
+            try:
+                from AppKit import NSApplication
+
+                NSApplication.sharedApplication().activateIgnoringOtherApps_(True)
+            except Exception:
+                pass
+
+    def _hide_to_menubar(self) -> None:
+        try:
+            self.root.withdraw()
+        except Exception:
+            pass
+        if self._status_key != "gui_status_running":
+            self._set_status_key("gui_status_in_menubar")
+
+    def _load_preset_from_menubar(self, path: Path) -> None:
+        """Switch a local preset from the macOS status-bar menu."""
+        if path is None:
+            return
+        path = Path(path)
+        if not path.is_file():
+            messagebox.showwarning(
+                self._t("gui_window_title"),
+                self._t("gui_msg_pick_preset"),
+            )
+            return
+        self._refresh_presets()
+        name = path.name
+        mapping = getattr(self, "_preset_paths", {})
+        if name not in mapping:
+            mapping[name] = path
+            self._preset_paths = mapping
+            values = list(self.preset_combo["values"] or ())
+            if name not in values:
+                self.preset_combo["values"] = [name, *values]
+        self.preset_combo.set(name)
+        self._load_preset()
 
     def _on_close(self) -> None:
+        # macOS: close button hides to the menu bar extra instead of quitting.
+        if sys.platform == "darwin" and getattr(self, "_menubar", None) is not None:
+            self._hide_to_menubar()
+            return
+        self._quit_app()
+
+    def _quit_app(self) -> None:
         self._left_wheel_bound = False
         try:
             self.root.unbind_all("<TouchpadScroll>")
@@ -2644,16 +2779,22 @@ class CosplayApp:
             pass
         sys.stdout = self._stdout_backup
         sys.stderr = self._stderr_backup
-        self.root.destroy()
+        try:
+            self.root.destroy()
+        except Exception:
+            pass
 
 
 def main() -> None:
     import os
 
     try:
-        os.chdir(_SCRIPT_DIR)
+        os.chdir(cp.get_writable_dir())
     except Exception as exc:
-        _show_startup_error("EQ Cosplay", f"Cannot access project directory:\n{_SCRIPT_DIR}\n\n{exc}")
+        _show_startup_error(
+            "EQ Cosplay",
+            f"Cannot access project directory:\n{cp.get_writable_dir()}\n\n{exc}",
+        )
         raise SystemExit(1) from exc
 
     _enable_windows_dpi_awareness()
@@ -2694,10 +2835,13 @@ def main() -> None:
                 pass
 
         app = CosplayApp(root)
+        app._install_menubar()
         app._log(app._t("gui_session_log", path=app.session_log_path))
         app._log(app._t("gui_logs_info", path=logs_dir))
         if sys.platform == "win32":
             app._log("[INFO] Windows: use start.bat to launch GUI; start.command is for macOS/Linux.\n")
+        elif sys.platform == "darwin" and app._menubar is not None:
+            app._log("[INFO] macOS menu bar extra is active — click EQ to switch local presets.\n")
         root.mainloop()
     except SystemExit:
         raise

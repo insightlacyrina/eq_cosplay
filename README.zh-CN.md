@@ -78,6 +78,32 @@ PEQ 参数可填入 Equalizer APO、Wavelet 等。**启用 FIR 时的完整残�
 
 ## 快速开始
 
+### 打包应用
+
+不需要本机安装 Python 的发行包：
+
+| 平台 | 产物 | 构建 |
+|------|------|------|
+| **macOS** | `dist/EQ-Cosplay-macOS.dmg` | `bash packaging/build_macos.sh` |
+| **Windows** | `dist/EQCosplay.exe` | 在 Windows 上运行 `packaging\build_windows.bat`，或用 GitHub Action **Build apps** |
+
+DMG 内是 `EQ Cosplay.app`，拖到「应用程序」即可。未签名首次打开：系统设置 → 隐私与安全性 → **仍要打开**。
+
+Windows 为单文件窗口程序。方案与日志写到 `%APPDATA%\EQ Cosplay\`。macOS 写到 `~/Library/Application Support/EQ Cosplay/`，同时仍会列出 `~/Desktop/eq_cosplay/presets` 里已有的 YAML。
+
+### macOS 菜单栏
+
+macOS 上会在屏幕右上角状态栏放一个 **EQ** 图标。点击可：
+
+- 查看 CamillaDSP 是否在运行
+- 快捷切换本机已保存的调音方案（`presets/` 下的 YAML）
+- 显示 / 隐藏主窗口
+- 停止引擎或退出
+
+关闭主窗口**不会退出**，引擎继续跑，图标留在状态栏。要从状态栏选「退出 EQ Cosplay」，或按 Cmd-Q。
+
+图形界面视觉（深色面板、金色方标、青绿主按钮、日志等宽字体）对齐本机 EchoCR 声骸台：界面字体为方心书，日志为 JetBrains Mono。
+
 ### 启动方式
 
 | 平台 | GUI | 终端 |
@@ -154,7 +180,12 @@ GUI 中若启用了 FIR，可在绿色 FIR 提示下方使用 **「停止 FIR」
 ```text
 eq_cosplay/
 ├── cosplay.py           # 核心：AutoEq、PEQ/FIR、CamillaDSP
-├── cosplay_gui.py       # Tkinter 界面
+├── cosplay_gui.py       # Tkinter 界面（EchoCR 视觉）
+├── theme.py             # 深色主题、方心书 + JetBrains Mono
+├── menubar_macos.py     # macOS 状态栏切换本机方案
+├── assets/              # 字体与图标
+├── eq_cosplay.spec      # PyInstaller 打包
+├── packaging/           # DMG / EXE 构建脚本
 ├── start.command        # macOS/Linux 启动 + GUI
 ├── start_cli.command    # macOS/Linux 终端
 ├── start.bat            # Windows 启动 + GUI

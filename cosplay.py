@@ -36,11 +36,81 @@ MIRROR_PREFIXES = [
 ]
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36"
-OFFLINE_CSV_DIR = Path("./offline_csvs")
+
+
+def is_frozen() -> bool:
+    """True when running from a PyInstaller / packaged app bundle."""
+    return bool(getattr(sys, "frozen", False) or getattr(sys, "_MEIPASS", None))
+
+
+def get_bundle_dir() -> Path:
+    """Read-only resources: source tree, PyInstaller _MEIPASS, or .app Resources."""
+    meipass = getattr(sys, "_MEIPASS", None)
+    if meipass:
+        return Path(meipass)
+    if getattr(sys, "frozen", False):
+        exe = Path(sys.executable).resolve().parent
+        resources = exe.parent / "Resources"
+        if resources.is_dir():
+            return resources
+        return exe
+    return Path(__file__).resolve().parent
+
+
+def get_writable_dir() -> Path:
+    """User-writable data (presets, logs, downloaded CamillaDSP)."""
+    if is_frozen():
+        if sys.platform == "darwin":
+            d = Path.home() / "Library" / "Application Support" / "EQ Cosplay"
+        elif sys.platform == "win32":
+            base = os.environ.get("APPDATA") or str(Path.home() / "AppData" / "Roaming")
+            d = Path(base) / "EQ Cosplay"
+        else:
+            d = Path.home() / ".local" / "share" / "eq-cosplay"
+        d.mkdir(parents=True, exist_ok=True)
+        return d
+    return Path(__file__).resolve().parent
+
+
+def extra_preset_dirs() -> list[Path]:
+    """Additional folders that may hold locally saved CamillaDSP YAML."""
+    dirs: list[Path] = []
+    env = os.environ.get("EQ_COSPLAY_PRESETS")
+    if env:
+        dirs.append(Path(env).expanduser())
+    if is_frozen():
+        dirs.extend(
+            [
+                Path.home() / "Desktop" / "eq_cosplay" / "presets",
+                Path.home() / "Developer" / "eq_cosplay" / "presets",
+            ]
+        )
+        if sys.platform == "darwin":
+            exe = Path(sys.executable).resolve()
+            # EQ Cosplay.app/Contents/MacOS/<bin>
+            app_bundle = exe.parent.parent.parent
+            dirs.append(app_bundle.parent / "presets")
+        elif sys.platform == "win32":
+            dirs.append(Path(sys.executable).resolve().parent / "presets")
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for d in dirs:
+        try:
+            resolved = d.expanduser().resolve()
+        except Exception:
+            continue
+        if resolved in seen or not resolved.is_dir():
+            continue
+        seen.add(resolved)
+        out.append(resolved)
+    return out
+
+
+OFFLINE_CSV_DIR = get_writable_dir() / "offline_csvs"
 # 生成的 CamillaDSP YAML 方案集中存放目录
-SAVED_PRESETS_DIR = Path("./presets")
+SAVED_PRESETS_DIR = get_writable_dir() / "presets"
 # 运行日志目录（CamillaDSP / GUI / CLI 会话日志）
-LOGS_DIR = Path("./logs")
+LOGS_DIR = get_writable_dir() / "logs"
 SUPPORTED_SAMPLE_RATES = {
     '1': 44100,
     '2': 48000,
@@ -375,6 +445,17 @@ MESSAGES = {
         "gui_col_freq": "Hz",
         "gui_col_gain": "dB",
         "gui_col_q": "Q",
+        "gui_brand_mark": "EQ",
+        "gui_menubar_presets": "Local presets",
+        "gui_menubar_no_presets": "No saved presets yet",
+        "gui_menubar_show": "Show window",
+        "gui_menubar_hide": "Hide window",
+        "gui_menubar_refresh": "Refresh presets",
+        "gui_menubar_stop": "Stop engine",
+        "gui_menubar_quit": "Quit EQ Cosplay",
+        "gui_menubar_running": "Running · {name}",
+        "gui_menubar_idle": "Engine idle",
+        "gui_status_in_menubar": "In menu bar · click EQ to switch presets",
     },
     "zh": {
         "retry_request": "[WARN] 请求失败 ({exc})，{wait_time:.1f} 秒后重试 ({attempt}/{retries})...",
@@ -627,6 +708,17 @@ MESSAGES = {
         "gui_col_freq": "Hz",
         "gui_col_gain": "dB",
         "gui_col_q": "Q",
+        "gui_brand_mark": "EQ",
+        "gui_menubar_presets": "本地调音方案",
+        "gui_menubar_no_presets": "还没有已保存的方案",
+        "gui_menubar_show": "显示主窗口",
+        "gui_menubar_hide": "隐藏主窗口",
+        "gui_menubar_refresh": "刷新方案列表",
+        "gui_menubar_stop": "停止引擎",
+        "gui_menubar_quit": "退出 EQ Cosplay",
+        "gui_menubar_running": "运行中 · {name}",
+        "gui_menubar_idle": "引擎未运行",
+        "gui_status_in_menubar": "已驻留菜单栏 · 点击 EQ 切换方案",
     },
     "ja": {
         "retry_request": "[WARN] リクエスト失敗 ({exc})。{wait_time:.1f}秒後に再試行 ({attempt}/{retries})...",
@@ -879,6 +971,17 @@ MESSAGES = {
         "gui_col_freq": "Hz",
         "gui_col_gain": "dB",
         "gui_col_q": "Q",
+        "gui_brand_mark": "EQ",
+        "gui_menubar_presets": "ローカルプリセット",
+        "gui_menubar_no_presets": "保存済みプリセットはありません",
+        "gui_menubar_show": "ウィンドウを表示",
+        "gui_menubar_hide": "ウィンドウを隠す",
+        "gui_menubar_refresh": "プリセットを更新",
+        "gui_menubar_stop": "エンジン停止",
+        "gui_menubar_quit": "EQ Cosplay を終了",
+        "gui_menubar_running": "稼働中 · {name}",
+        "gui_menubar_idle": "エンジン停止中",
+        "gui_status_in_menubar": "メニューバー常駐 · EQ をクリックして切替",
     },
 }
 
@@ -1310,21 +1413,32 @@ def build_config_path(source_entry: dict, target_entry: dict) -> Path:
 
 def list_saved_presets() -> list[Path]:
     """列出本机已保存的 YAML 方案（presets/ + 项目根目录历史 cosplay_*.yml）。"""
-    presets_dir = get_presets_dir()
     found: list[Path] = []
     seen_names: set[str] = set()
 
-    for path in sorted(presets_dir.glob("*.yml")) + sorted(presets_dir.glob("*.yaml")):
-        if path.is_file() and path.name not in seen_names:
-            found.append(path)
-            seen_names.add(path.name)
-
+    search_dirs = [get_presets_dir()]
+    search_dirs.extend(extra_preset_dirs())
     # 兼容旧版写在项目根目录的 cosplay_*.yml
-    script_dir = Path(__file__).resolve().parent
-    for path in sorted(script_dir.glob("cosplay_*.yml")) + sorted(script_dir.glob("cosplay_*.yaml")):
-        if path.is_file() and path.name not in seen_names:
-            found.append(path)
-            seen_names.add(path.name)
+    search_dirs.append(Path(__file__).resolve().parent)
+    search_dirs.append(get_bundle_dir())
+
+    seen_dirs: set[Path] = set()
+    for folder in search_dirs:
+        try:
+            resolved = folder.resolve()
+        except Exception:
+            continue
+        if resolved in seen_dirs or not resolved.is_dir():
+            continue
+        seen_dirs.add(resolved)
+        patterns = ("*.yml", "*.yaml") if resolved.name == "presets" else ("cosplay_*.yml", "cosplay_*.yaml")
+        if resolved == get_presets_dir() or resolved.name == "presets":
+            patterns = ("*.yml", "*.yaml")
+        for pattern in patterns:
+            for path in sorted(resolved.glob(pattern)):
+                if path.is_file() and path.name not in seen_names:
+                    found.append(path)
+                    seen_names.add(path.name)
 
     # 按修改时间新→旧，便于优先选最近方案
     found.sort(key=lambda p: p.stat().st_mtime, reverse=True)
@@ -2954,15 +3068,15 @@ def get_camilladsp_asset_name(system_name: str, arch: str) -> str | None:
 
 
 def extract_archive_to_script_dir(archive_path: Path) -> bool:
-    """解压 CamillaDSP 发布包到脚本目录。"""
-    script_dir = Path(__file__).resolve().parent
+    """解压 CamillaDSP 发布包到可写数据目录。"""
+    dest = get_writable_dir()
     try:
         if archive_path.suffix == '.zip':
             with zipfile.ZipFile(archive_path, 'r') as zip_ref:
-                zip_ref.extractall(script_dir)
+                zip_ref.extractall(dest)
         else:
             with tarfile.open(archive_path, 'r:gz') as tar_ref:
-                tar_ref.extractall(script_dir)
+                tar_ref.extractall(dest)
         return True
     except Exception:
         return False
@@ -2970,6 +3084,38 @@ def extract_archive_to_script_dir(archive_path: Path) -> bool:
 
 def get_camilladsp_executable_name(system_name: str) -> str:
     return 'camilladsp.exe' if system_name == 'Windows' else 'camilladsp'
+
+
+def get_camilladsp_search_dirs() -> list[Path]:
+    dirs: list[Path] = [get_writable_dir(), get_bundle_dir()]
+    if getattr(sys, "frozen", False):
+        dirs.append(Path(sys.executable).resolve().parent)
+    dirs.append(Path(__file__).resolve().parent)
+    seen: set[Path] = set()
+    out: list[Path] = []
+    for d in dirs:
+        try:
+            resolved = d.resolve()
+        except Exception:
+            continue
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        out.append(resolved)
+    return out
+
+
+def get_camilladsp_path() -> Path | None:
+    """Locate the CamillaDSP binary (writable dir, then bundled copy)."""
+    system_name, _ = get_platform_info()
+    name = get_camilladsp_executable_name(system_name)
+    for folder in get_camilladsp_search_dirs():
+        candidate = folder / name
+        if not candidate.is_file():
+            continue
+        if system_name == "Windows" or os.access(candidate, os.X_OK):
+            return candidate
+    return None
 
 
 # --- 新增：系统工具函数 ---
@@ -3378,15 +3524,8 @@ def get_output_device_name() -> str:
 
 
 def is_camilladsp_installed() -> bool:
-    """检测与当前 Python 脚本同目录下是否有 camilladsp 可执行文件"""
-    system_name, _ = get_platform_info()
-    script_dir = Path(__file__).resolve().parent
-    camilla_path = script_dir / get_camilladsp_executable_name(system_name)
-    if not camilla_path.exists():
-        return False
-    if system_name == 'Windows':
-        return True
-    return os.access(camilla_path, os.X_OK)
+    """检测可写目录或打包资源中是否有 camilladsp 可执行文件"""
+    return get_camilladsp_path() is not None
 
 
 def download_camilladsp() -> bool:
@@ -3430,12 +3569,12 @@ def download_camilladsp() -> bool:
                 return False
 
             executable_name = get_camilladsp_executable_name(system_name)
-            script_dir = Path(__file__).resolve().parent
-            camilla_path = script_dir / executable_name
+            dest_dir = get_writable_dir()
+            camilla_path = dest_dir / executable_name
 
             if not camilla_path.exists():
                 # 如果解压后没有直接生成可执行文件，则尝试从解压目录中查找
-                found = list(script_dir.rglob(executable_name))
+                found = list(dest_dir.rglob(executable_name))
                 if found:
                     camilla_path = found[0]
                 else:
@@ -3454,7 +3593,7 @@ def download_camilladsp() -> bool:
                     )
                     # 同目录可能还有解压残留带标记
                     subprocess.run(
-                        ['xattr', '-dr', 'com.apple.quarantine', str(script_dir / 'camilladsp')],
+                        ['xattr', '-dr', 'com.apple.quarantine', str(dest_dir / 'camilladsp')],
                         capture_output=True,
                         timeout=10,
                     )
@@ -4156,10 +4295,12 @@ def run_camilladsp(config_path: Path, debug: bool = False) -> tuple[subprocess.P
         stopped = stop_existing_camilladsp_instances(announce=True)
         time.sleep(0.4 if stopped > 0 else 0.05)
 
-        script_dir = Path(__file__).resolve().parent
-        executable_name = get_camilladsp_executable_name(system_name)
+        camilla_path = get_camilladsp_path()
+        if camilla_path is None:
+            localized_print('camilladsp_not_installed')
+            return None, None
         # CamillaDSP 4.x: 配置文件是位置参数；-c/--check 表示“仅校验配置后退出”，不能用来指定配置文件
-        command = [str(script_dir / executable_name)]
+        command = [str(camilla_path)]
         if debug:
             command += ['-l', 'debug']
         else:
