@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build EchoCR-styled app / menu-bar icons from the bundled FangXinShu font."""
+"""Build app / menu-bar / window icons from the artwork in assets/icons/source.png."""
 
 from __future__ import annotations
 
@@ -8,103 +8,111 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-FONT = ROOT / "assets" / "fonts" / "fang-xin-shu.ttf"
 OUT = ROOT / "assets" / "icons"
-BG = (11, 13, 17, 255)
-GOLD = (212, 162, 74, 255)
-WHITE = (255, 255, 255, 255)
+SOURCE_STABLE = OUT / "source.png"
 
 
 def _require_pil():
     try:
-        from PIL import Image, ImageDraw, ImageFont  # noqa: F401
+        from PIL import Image  # noqa: F401
     except ImportError:
         subprocess.check_call([sys.executable, "-m", "pip", "install", "pillow", "-q"])
-        from PIL import Image, ImageDraw, ImageFont  # noqa: F401
-    return __import__("PIL.Image", fromlist=["Image"]).Image  # dummy
 
 
-def load_font(size: int):
-    from PIL import ImageFont
-
-    if FONT.is_file():
-        return ImageFont.truetype(str(FONT), size=size)
-    return ImageFont.load_default()
-
-
-def draw_app_icon(size: int = 1024):
-    from PIL import Image, ImageDraw
-
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    pad = int(size * 0.06)
-    radius = int(size * 0.08)
-    draw.rounded_rectangle(
-        [pad, pad, size - pad, size - pad],
-        radius=radius,
-        fill=BG,
-    )
-    inner = pad + int(size * 0.10)
-    draw.rounded_rectangle(
-        [inner, inner, size - inner, size - inner],
-        radius=max(4, radius // 3),
-        outline=GOLD,
-        width=max(2, size // 64),
-    )
-    font = load_font(int(size * 0.38))
-    text = "EQ"
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    x = (size - tw) / 2 - bbox[0]
-    y = (size - th) / 2 - bbox[1] - size * 0.02
-    draw.text((x, y), text, font=font, fill=GOLD)
-    return img
+def find_source() -> Path:
+    candidates = [
+        OUT / "theme-icon.png",
+        ROOT / "theme-icon.png",
+        SOURCE_STABLE,
+        ROOT / "主题.png",
+    ]
+    for path in candidates:
+        if path.is_file():
+            return path
+    matches = sorted(ROOT.glob("ChatGPT Image*.png")) + sorted(ROOT.glob("ChatGPT Image*.jpg"))
+    if matches:
+        return matches[-1]
+    raise SystemExit("No source icon found (assets/icons/theme-icon.png)")
 
 
-def draw_menubar(size: int = 44):
-    from PIL import Image, ImageDraw
+def crop_content(im, pad_ratio: float = 0.04):
+    """Trim empty margin. Keep pre-masked rounded-rect artwork as-is."""
+    from PIL import Image, ImageChops
 
-    img = Image.new("RGBA", (size, size), (0, 0, 0, 0))
-    draw = ImageDraw.Draw(img)
-    inset = max(1, size // 16)
-    draw.rectangle(
-        [inset, inset, size - inset - 1, size - inset - 1],
-        outline=WHITE,
-        width=max(1, size // 22),
-    )
-    font = load_font(int(size * 0.42))
-    text = "EQ"
-    bbox = draw.textbbox((0, 0), text, font=font)
-    tw, th = bbox[2] - bbox[0], bbox[3] - bbox[1]
-    x = (size - tw) / 2 - bbox[0]
-    y = (size - th) / 2 - bbox[1]
-    draw.text((x, y), text, font=font, fill=WHITE)
-    return img
+    rgba = im.convert("RGBA")
+    # Transparent corners already mean a squircle / rounded-rect mask.
+    if rgba.getpixel((0, 0))[3] < 8:
+        return rgba
+    bg = rgba.getpixel((0, 0))
+    # Difference from corner color; keep pixels that aren't the outer canvas.
+    bg_img = Image.new("RGBA", rgba.size, bg)
+    diff = ImageChops.difference(rgba, bg_img).convert("L")
+    bbox = diff.point(lambda p: 255 if p > 12 else 0).getbbox()
+    if not bbox:
+        return rgba
+    left, top, right, bottom = bbox
+    w, h = rgba.size
+    pad = int(max(w, h) * pad_ratio)
+    left = max(0, left - pad)
+    top = max(0, top - pad)
+    right = min(w, right + pad)
+    bottom = min(h, bottom + pad)
+    side = max(right - left, bottom - top)
+    cx = (left + right) // 2
+    cy = (top + bottom) // 2
+    left = max(0, cx - side // 2)
+    top = max(0, cy - side // 2)
+    right = min(w, left + side)
+    bottom = min(h, top + side)
+    return rgba.crop((left, top, right, bottom))
+
+
+def to_square(im, size: int, bg=(0, 0, 0, 0)):
+    from PIL import Image
+
+    im = im.convert("RGBA")
+    canvas = Image.new("RGBA", (size, size), bg)
+    fitted = im.copy()
+    fitted.thumbnail((size, size), Image.Resampling.LANCZOS)
+    x = (size - fitted.width) // 2
+    y = (size - fitted.height) // 2
+    canvas.paste(fitted, (x, y), fitted)
+    return canvas
+
+
+def make_template(im, size: int):
+    """Black-on-transparent glyph for macOS menu-bar template images."""
+    from PIL import Image, ImageOps, ImageFilter
+
+    rgba = im.convert("RGBA").resize((size * 4, size * 4), Image.Resampling.LANCZOS)
+    gray = ImageOps.grayscale(rgba)
+    # Darker strokes (headphones) become opaque black.
+    mask = gray.point(lambda p: 255 if p < 210 else 0)
+    alpha_src = rgba.split()[-1]
+    mask = ImageChops_and(mask, alpha_src)
+    mask = mask.filter(ImageFilter.MaxFilter(3))
+    out = Image.new("RGBA", rgba.size, (0, 0, 0, 0))
+    black = Image.new("RGBA", rgba.size, (0, 0, 0, 255))
+    out.paste(black, mask=mask)
+    return out.resize((size, size), Image.Resampling.LANCZOS)
+
+
+def ImageChops_and(a, b):
+    from PIL import ImageChops
+
+    return ImageChops.multiply(a, b)
 
 
 def write_icns(png_1024: Path, dest: Path) -> None:
-    iconset = dest.with_suffix(".iconset")
-    if iconset.exists():
-        import shutil
+    import shutil
 
-        shutil.rmtree(iconset)
-    iconset.mkdir(parents=True)
-    mapping = {
-        16: "icon_16x16.png",
-        32: "icon_16x16@2x.png",
-        32: "icon_32x32.png",
-        64: "icon_32x32@2x.png",
-        128: "icon_128x128.png",
-        256: "icon_128x128@2x.png",
-        256: "icon_256x256.png",
-        512: "icon_256x256@2x.png",
-        512: "icon_512x512.png",
-        1024: "icon_512x512@2x.png",
-    }
-    # last assignment wins for duplicate keys; write each needed size explicitly
     from PIL import Image
 
-    src = Image.open(png_1024)
+    iconset = dest.with_suffix(".iconset")
+    if iconset.exists():
+        shutil.rmtree(iconset)
+    iconset.mkdir(parents=True)
+    src = Image.open(png_1024).convert("RGBA")
     jobs = [
         (16, "icon_16x16.png"),
         (32, "icon_16x16@2x.png"),
@@ -125,20 +133,30 @@ def write_icns(png_1024: Path, dest: Path) -> None:
 def write_ico(png_1024: Path, dest: Path) -> None:
     from PIL import Image
 
-    src = Image.open(png_1024)
+    src = Image.open(png_1024).convert("RGBA")
     sizes = [(16, 16), (24, 24), (32, 32), (48, 48), (64, 64), (128, 128), (256, 256)]
     src.save(dest, format="ICO", sizes=sizes)
 
 
 def main() -> None:
+    from PIL import Image
+
     _require_pil()
     OUT.mkdir(parents=True, exist_ok=True)
-    app = draw_app_icon(1024)
+    src_path = find_source()
+    original = Image.open(src_path).convert("RGBA")
+    if src_path.resolve() != SOURCE_STABLE.resolve():
+        original.save(SOURCE_STABLE)
+        print(f"[OK] copied source → {SOURCE_STABLE}")
+
+    cropped = crop_content(original)
+    app = to_square(cropped, 1024)
     app_path = OUT / "app.png"
     app.save(app_path)
-    menubar = draw_menubar(44)
-    menubar.save(OUT / "menubar.png")
-    draw_menubar(22).save(OUT / "menubarTemplate.png")
+    to_square(cropped, 128).save(OUT / "window.png")
+    to_square(cropped, 44).save(OUT / "menubar.png")
+    make_template(cropped, 22).save(OUT / "menubarTemplate.png")
+
     icns = ROOT / "packaging" / "EQCosplay.icns"
     ico = ROOT / "packaging" / "EQCosplay.ico"
     if sys.platform == "darwin":
@@ -146,7 +164,6 @@ def main() -> None:
             write_icns(app_path, icns)
         except Exception as exc:
             print(f"[WARN] icns: {exc}", file=sys.stderr)
-            app.save(icns.with_suffix(".png"))
     try:
         write_ico(app_path, ico)
     except Exception as exc:

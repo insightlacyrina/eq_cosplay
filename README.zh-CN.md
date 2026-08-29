@@ -11,19 +11,33 @@
 
 ## 获取代码（重要）
 
-**强烈建议使用 `git clone`，不要优先使用 GitHub 网页的 “Download ZIP”。**
+仓库地址：**https://github.com/insightlacyrina/eq_cosplay**  
+请先安装 [Git](https://git-scm.com/downloads)。`git clone` 能保留启动脚本的 `+x`，之后也可用 `git pull` 更新。
 
-| 方式 | 说明 |
-|------|------|
-| **`git clone`（推荐）** | 保留启动脚本的可执行权限（`+x`）；可用 `git pull` 更新；更少“无权限 / 无法打开”问题 |
-| **下载 ZIP** | 常丢失可执行位；在 macOS 上还可能带上隔离属性（quarantine）；更新只能重新下包 |
+如果官方地址 **卡住、超时、TLS 失败**，多半是访问不了 `github.com`（国内常见），请改用下面的镜像，而不是反复重试同一条命令。
 
 ```bash
+# 1）直连（能打开 GitHub 时用这条）
 git clone https://github.com/insightlacyrina/eq_cosplay.git
 cd eq_cosplay
+
+# 2）直连失败：走 GitHub 前缀镜像（同一仓库）
+git clone --depth 1 https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay.git
+cd eq_cosplay
+git remote set-url origin https://github.com/insightlacyrina/eq_cosplay.git
 ```
 
-若已经用 ZIP 解压到 macOS / Linux，可先修复一次：
+`ghfast.top` 也挂了时再试：
+
+```bash
+git clone --depth 1 https://gh-proxy.com/https://github.com/insightlacyrina/eq_cosplay.git
+git clone --depth 1 https://mirror.ghproxy.com/https://github.com/insightlacyrina/eq_cosplay.git
+```
+
+**没有 Git 时用 ZIP：**  
+[main.zip](https://github.com/insightlacyrina/eq_cosplay/archive/refs/heads/main.zip) · [镜像 zip](https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay/archive/refs/heads/main.zip)
+
+解压后在 macOS / Linux 执行一次：
 
 ```bash
 chmod +x start.command start_cli.command cosplay_gui.py cosplay.py
@@ -154,6 +168,8 @@ macOS 的 `start.command` 还包含**新机预检**：恢复 `+x`、尽量清除
 
 ```bash
 git clone https://github.com/insightlacyrina/eq_cosplay.git
+# 若 github.com 无法访问：
+# git clone --depth 1 https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay.git
 cd eq_cosplay
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate

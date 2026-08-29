@@ -20,6 +20,11 @@ venv/
 ENV/
 env/
 
+# User-dropped exports (canonical copies live in assets/icons/)
+ChatGPT Image*.png
+ChatGPT Image*.jpg
+主题.png
+
 # Packaged apps (rebuild with packaging/build_*.sh)
 packaging/*.icns
 packaging/*.ico

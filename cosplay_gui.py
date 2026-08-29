@@ -347,6 +347,8 @@ class CosplayApp:
         self.root.minsize(760, 560)
         self._theme = {}
         self._menubar = None
+        self._window_icon = None
+        self._apply_window_icon()
 
         self.log_q: queue.Queue = queue.Queue()
         self._stdout_backup = sys.stdout
@@ -397,6 +399,25 @@ class CosplayApp:
         self.root.after(80, self._poll_log)
         self.root.after(200, self._bootstrap)
 
+    def _apply_window_icon(self) -> None:
+        """Use the bundled app artwork as the window / dock icon when running from source."""
+        try:
+            icon_dir = ui_theme.assets_dir() / "icons"
+        except Exception:
+            icon_dir = Path(__file__).resolve().parent / "assets" / "icons"
+        for name in ("window.png", "app.png"):
+            path = icon_dir / name
+            if not path.is_file():
+                continue
+            try:
+                from tkinter import PhotoImage
+
+                self._window_icon = PhotoImage(file=str(path))
+                self.root.iconphoto(True, self._window_icon)
+                return
+            except Exception:
+                continue
+
     def _init_output_default(self) -> None:
         detected = None
         if self.system_name == "Darwin":
@@ -428,7 +449,7 @@ class CosplayApp:
     def _build_ui(self) -> None:
         self._theme = ui_theme.apply(self.root)
 
-        self.outer = ttk.Frame(self.root, padding=(20, 16, 20, 16), style="TFrame")
+        self.outer = ttk.Frame(self.root, padding=(16, 12, 16, 12), style="TFrame")
         self.outer.pack(fill=BOTH, expand=True)
         self.outer.rowconfigure(1, weight=1)
         self.outer.columnconfigure(0, weight=1)
@@ -440,7 +461,7 @@ class CosplayApp:
 
         brand = ttk.Frame(top, style="Top.TFrame")
         brand.grid(row=0, column=0, sticky="w")
-        self.mark = ui_theme.make_mark(brand, text="EQ", size=44)
+        self.mark = ui_theme.make_mark(brand, text="EQ", size=36)
         self.mark.pack(side=LEFT, padx=(0, 14))
         self.lbl_title = ttk.Label(brand, text="EQ Cosplay", style="Title.TLabel")
         self.lbl_title.pack(side=LEFT)
@@ -568,14 +589,16 @@ class CosplayApp:
         self.preset_combo.grid(row=0, column=0, sticky="ew", pady=(0, 4))
         pbtn = ttk.Frame(self.frm_presets)
         pbtn.grid(row=1, column=0, sticky="ew")
+        pbtn.columnconfigure(0, weight=1)
+        pbtn.columnconfigure(1, weight=1)
         self.btn_refresh = ttk.Button(
             pbtn, text="", command=self._refresh_presets, style="Ghost.TButton"
         )
-        self.btn_refresh.pack(side=LEFT)
+        self.btn_refresh.grid(row=0, column=0, sticky="ew", padx=(0, 4))
         self.btn_load_preset = ttk.Button(
             pbtn, text="", command=self._load_preset, style="Gold.TButton"
         )
-        self.btn_load_preset.pack(side=LEFT, padx=4)
+        self.btn_load_preset.grid(row=0, column=1, sticky="ew")
 
         # Cosplay 表单
         self.frm_cosplay = ttk.LabelFrame(parent, text="", padding=8)
@@ -642,23 +665,23 @@ class CosplayApp:
 
         # 操作按钮
         bf = ttk.Frame(parent)
-        bf.grid(row=4, column=0, sticky="ew", pady=8)
+        bf.grid(row=4, column=0, sticky="ew", pady=(8, 0))
         bf.columnconfigure(0, weight=1)
+        bf.columnconfigure(1, weight=1)
         self.btn_calc = ttk.Button(
             bf, text="", command=self._on_calculate, style="Primary.TButton"
         )
-        self.btn_calc.grid(row=0, column=0, sticky="ew", pady=2)
+        self.btn_calc.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 4))
         self.btn_deploy = ttk.Button(
             bf, text="", command=self._on_deploy, state=DISABLED, style="Primary.TButton"
         )
-        self.btn_deploy.grid(row=1, column=0, sticky="ew", pady=2)
+        self.btn_deploy.grid(row=1, column=0, columnspan=2, sticky="ew", pady=(0, 4))
         self.btn_stop = ttk.Button(bf, text="", command=self._on_stop, state=DISABLED)
-        self.btn_stop.grid(row=2, column=0, sticky="ew", pady=2)
-        # 与「计算校正」等同宽全宽按钮，避免小窗口挤占绿色 FIR 文案
+        self.btn_stop.grid(row=2, column=0, sticky="ew", padx=(0, 4))
         self.btn_stop_fir = ttk.Button(
             bf, text="", command=self._on_toggle_fir, state=DISABLED, style="Ghost.TButton"
         )
-        self.btn_stop_fir.grid(row=3, column=0, sticky="ew", pady=2)
+        self.btn_stop_fir.grid(row=2, column=1, sticky="ew")
 
     def _build_right(self, parent: ttk.Frame) -> None:
         # PEQ 与频响同组 uniform，保证面积一致；日志单独分剩余空间

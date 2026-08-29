@@ -222,7 +222,8 @@ def _load_template_image(NSImage):
         img = NSImage.alloc().initWithContentsOfFile_(str(path))
         if img is None:
             return _draw_fallback_image(NSImage)
-        img.setTemplate_(True)
+        # Colour artwork for menubar.png; template (black glyph) otherwise.
+        img.setTemplate_(path.name.lower().endswith("template.png"))
         img.setSize_((18, 18))
         return img
     except Exception:

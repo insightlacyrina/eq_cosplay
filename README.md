@@ -11,19 +11,33 @@
 
 ## Get the code (important)
 
-**We strongly recommend using `git clone` instead of downloading the ZIP from GitHub.**
+Repo: **https://github.com/insightlacyrina/eq_cosplay**  
+You need [Git](https://git-scm.com/downloads). `git clone` keeps `+x` on launch scripts and makes `git pull` updates easy.
 
-| Method | Why |
-|--------|-----|
-| **`git clone` (recommended)** | Keeps executable bits (`+x`) on launch scripts; easier updates via `git pull`; fewer “permission denied” / Gatekeeper surprises |
-| **Download ZIP** | Often strips executable permissions; on macOS may add quarantine attributes; updates require re-downloading |
+If `git clone` **hangs, times out, or TLS-fails**, you are probably not reaching `github.com` (common on some networks). Use a prefix mirror instead of giving up.
 
 ```bash
+# 1) Direct (works when GitHub is reachable)
 git clone https://github.com/insightlacyrina/eq_cosplay.git
 cd eq_cosplay
+
+# 2) If step 1 fails: GitHub prefix mirror (same repo)
+git clone --depth 1 https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay.git
+cd eq_cosplay
+git remote set-url origin https://github.com/insightlacyrina/eq_cosplay.git
 ```
 
-If you already used a ZIP on macOS/Linux, fix permissions once:
+Other mirrors if `ghfast.top` is down:
+
+```bash
+git clone --depth 1 https://gh-proxy.com/https://github.com/insightlacyrina/eq_cosplay.git
+git clone --depth 1 https://mirror.ghproxy.com/https://github.com/insightlacyrina/eq_cosplay.git
+```
+
+**ZIP fallback** (no Git):  
+[main.zip](https://github.com/insightlacyrina/eq_cosplay/archive/refs/heads/main.zip) · [mirror zip](https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay/archive/refs/heads/main.zip)
+
+Unzip, then on macOS/Linux:
 
 ```bash
 chmod +x start.command start_cli.command cosplay_gui.py cosplay.py
@@ -152,6 +166,8 @@ First run creates `.venv`, installs dependencies, and starts the app.
 
 ```bash
 git clone https://github.com/insightlacyrina/eq_cosplay.git
+# if GitHub is unreachable:
+# git clone --depth 1 https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay.git
 cd eq_cosplay
 python3 -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate

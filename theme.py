@@ -209,13 +209,14 @@ def apply(root) -> dict:
     resolve_families(root)
     ui = ui_family()
     mono = mono_family()
-    ui14 = (ui, 14)
-    ui13 = (ui, 13)
+    # FangXinShu Heavy reads large at CSS-equivalent sizes; keep 2pt below EchoCR.
     ui12 = (ui, 12)
     ui11 = (ui, 11)
-    title = (ui, 20)
-    mark_font = (ui, 16, "bold")
-    mono12 = (mono, 12)
+    ui10 = (ui, 10)
+    ui9 = (ui, 9)
+    title = (ui, 18)
+    mark_font = (ui, 14, "bold")
+    mono10 = (mono, 10)
 
     try:
         root.configure(bg=BG)
@@ -223,20 +224,20 @@ def apply(root) -> dict:
         pass
     try:
         root.option_add("*tearOff", False)
-        root.option_add("*Font", ui14)
+        root.option_add("*Font", ui12)
         root.option_add("*Background", BG)
         root.option_add("*Foreground", TEXT)
         root.option_add("*TCombobox*Listbox.background", INPUT)
         root.option_add("*TCombobox*Listbox.foreground", TEXT)
         root.option_add("*TCombobox*Listbox.selectBackground", GOLD_BG)
         root.option_add("*TCombobox*Listbox.selectForeground", GOLD)
-        root.option_add("*TCombobox*Listbox.font", ui13)
+        root.option_add("*TCombobox*Listbox.font", ui11)
         root.option_add("*Entry.background", INPUT)
         root.option_add("*Entry.foreground", TEXT)
         root.option_add("*Entry.insertBackground", TEXT)
         root.option_add("*Text.background", LOG_BG)
         root.option_add("*Text.foreground", LOG_FG)
-        root.option_add("*Text.font", mono12)
+        root.option_add("*Text.font", mono10)
     except Exception:
         pass
 
@@ -246,23 +247,23 @@ def apply(root) -> dict:
     except TclError:
         pass
 
-    style.configure(".", background=BG, foreground=TEXT, font=ui14, bordercolor=LINE)
+    style.configure(".", background=BG, foreground=TEXT, font=ui12, bordercolor=LINE)
     style.configure("TFrame", background=BG)
     style.configure("Panel.TFrame", background=PANEL)
     style.configure("Top.TFrame", background=BG)
-    style.configure("TLabel", background=BG, foreground=TEXT, font=ui14)
-    style.configure("Muted.TLabel", background=BG, foreground=MUTED, font=ui12)
+    style.configure("TLabel", background=BG, foreground=TEXT, font=ui12)
+    style.configure("Muted.TLabel", background=BG, foreground=MUTED, font=ui10)
     style.configure("Title.TLabel", background=BG, foreground=TEXT, font=title)
-    style.configure("Gold.TLabel", background=BG, foreground=GOLD, font=ui13)
-    style.configure("Teal.TLabel", background=BG, foreground=TEAL, font=ui13)
-    style.configure("Ok.TLabel", background=BG, foreground=OK, font=ui13)
-    style.configure("Rose.TLabel", background=BG, foreground=ROSE, font=ui13)
+    style.configure("Gold.TLabel", background=BG, foreground=GOLD, font=ui11)
+    style.configure("Teal.TLabel", background=BG, foreground=TEAL, font=ui11)
+    style.configure("Ok.TLabel", background=BG, foreground=OK, font=ui11)
+    style.configure("Rose.TLabel", background=BG, foreground=ROSE, font=ui11)
     style.configure(
         "Pill.TLabel",
         background=SLOT,
         foreground=MUTED,
-        font=ui12,
-        padding=(10, 4),
+        font=ui10,
+        padding=(8, 3),
         bordercolor=LINE,
         relief="solid",
     )
@@ -270,8 +271,8 @@ def apply(root) -> dict:
         "PillOn.TLabel",
         background="#0f1f16",
         foreground=OK,
-        font=ui12,
-        padding=(10, 4),
+        font=ui10,
+        padding=(8, 3),
         bordercolor="#14532d",
         relief="solid",
     )
@@ -279,8 +280,8 @@ def apply(root) -> dict:
         "PillOff.TLabel",
         background="#1a1010",
         foreground=ROSE,
-        font=ui12,
-        padding=(10, 4),
+        font=ui10,
+        padding=(8, 3),
         bordercolor="#4a1f1f",
         relief="solid",
     )
@@ -291,13 +292,13 @@ def apply(root) -> dict:
         foreground=TEXT,
         bordercolor=LINE,
         relief="solid",
-        padding=10,
+        padding=8,
     )
     style.configure(
         "TLabelframe.Label",
         background=PANEL,
         foreground=GOLD,
-        font=ui13,
+        font=ui11,
     )
 
     style.configure(
@@ -308,9 +309,11 @@ def apply(root) -> dict:
         darkcolor=BTN,
         lightcolor=BTN,
         focusthickness=0,
-        padding=(12, 7),
-        font=ui13,
+        padding=(10, 5),
+        font=ui11,
         relief="flat",
+        wraplength=0,
+        justify="center",
     )
     style.map(
         "TButton",
@@ -325,8 +328,10 @@ def apply(root) -> dict:
         bordercolor=PRIMARY_LINE,
         darkcolor=PRIMARY_BG,
         lightcolor=PRIMARY_BG,
-        padding=(12, 8),
-        font=ui13,
+        padding=(10, 5),
+        font=ui11,
+        wraplength=0,
+        justify="center",
     )
     style.map(
         "Primary.TButton",
@@ -341,8 +346,10 @@ def apply(root) -> dict:
         bordercolor=GOLD,
         darkcolor=GOLD_BG,
         lightcolor=GOLD_BG,
-        padding=(12, 8),
-        font=ui13,
+        padding=(10, 5),
+        font=ui11,
+        wraplength=0,
+        justify="center",
     )
     style.map(
         "Gold.TButton",
@@ -357,8 +364,10 @@ def apply(root) -> dict:
         bordercolor=LINE,
         darkcolor=BG,
         lightcolor=BG,
-        padding=(10, 6),
-        font=ui13,
+        padding=(10, 5),
+        font=ui11,
+        wraplength=0,
+        justify="center",
     )
     style.map(
         "Ghost.TButton",
@@ -375,8 +384,8 @@ def apply(root) -> dict:
         lightcolor=LINE,
         darkcolor=LINE,
         insertcolor=TEXT,
-        padding=6,
-        font=ui13,
+        padding=4,
+        font=ui11,
     )
     style.map(
         "TEntry",
@@ -393,8 +402,8 @@ def apply(root) -> dict:
         arrowcolor=MUTED,
         lightcolor=LINE,
         darkcolor=LINE,
-        padding=5,
-        font=ui13,
+        padding=4,
+        font=ui11,
     )
     style.map(
         "TCombobox",
@@ -407,10 +416,10 @@ def apply(root) -> dict:
         "TCheckbutton",
         background=BG,
         foreground=TEXT,
-        font=ui13,
+        font=ui11,
         indicatorcolor=INPUT,
         indicatorbackground=INPUT,
-        padding=4,
+        padding=3,
     )
     style.map(
         "TCheckbutton",
@@ -422,9 +431,9 @@ def apply(root) -> dict:
         "TRadiobutton",
         background=PANEL,
         foreground=TEXT,
-        font=ui13,
+        font=ui11,
         indicatorcolor=INPUT,
-        padding=3,
+        padding=2,
     )
     style.map(
         "TRadiobutton",
@@ -440,8 +449,8 @@ def apply(root) -> dict:
         bordercolor=LINE,
         lightcolor=LINE,
         darkcolor=LINE,
-        rowheight=26,
-        font=ui12,
+        rowheight=22,
+        font=ui10,
     )
     style.configure(
         "Treeview.Heading",
@@ -449,8 +458,8 @@ def apply(root) -> dict:
         foreground=GOLD,
         bordercolor=LINE,
         relief="flat",
-        font=ui12,
-        padding=4,
+        font=ui10,
+        padding=3,
     )
     style.map(
         "Treeview",
@@ -482,18 +491,21 @@ def apply(root) -> dict:
     return {
         "ui": ui,
         "mono": mono,
-        "ui14": ui14,
-        "ui13": ui13,
+        "ui14": ui12,
+        "ui13": ui11,
         "ui12": ui12,
         "ui11": ui11,
+        "ui10": ui10,
+        "ui9": ui9,
         "title": title,
         "mark": mark_font,
-        "mono12": mono12,
+        "mono12": mono10,
+        "mono10": mono10,
         "style": style,
     }
 
 
-def make_mark(parent, text: str = "EQ", size: int = 44) -> Canvas:
+def make_mark(parent, text: str = "EQ", size: int = 36) -> Canvas:
     """Gold-bordered square mark, matching EchoCR `.mark`."""
     cv = Canvas(
         parent,
