@@ -85,7 +85,7 @@ Prebuilt binaries (no Python install required):
 | Platform | Artifact | How to build |
 |----------|----------|--------------|
 | **macOS** | `dist/EQ-Cosplay-macOS.dmg` | `bash packaging/build_macos.sh` |
-| **Windows** | `dist/EQCosplay.exe` | `packaging\build_windows.bat` (on Windows) or the GitHub Action **Build apps** |
+| **Windows** | `dist/EQCosplay.exe` | On a Windows PC: `packaging\build_windows.bat`. Cross-compile from macOS is not supported. CI YAML is `packaging/github-build-apps.yml` (copy to `.github/workflows/` if your token has the `workflow` scope). |
 
 The DMG contains `EQ Cosplay.app`. Drag it to **Applications**. On first launch macOS may ask to open an unsigned app: **System Settings → Privacy & Security → Open Anyway**.
 

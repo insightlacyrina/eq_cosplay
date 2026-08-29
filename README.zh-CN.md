@@ -85,7 +85,7 @@ PEQ 参数可填入 Equalizer APO、Wavelet 等。**启用 FIR 时的完整残�
 | 平台 | 产物 | 构建 |
 |------|------|------|
 | **macOS** | `dist/EQ-Cosplay-macOS.dmg` | `bash packaging/build_macos.sh` |
-| **Windows** | `dist/EQCosplay.exe` | 在 Windows 上运行 `packaging\build_windows.bat`，或用 GitHub Action **Build apps** |
+| **Windows** | `dist/EQCosplay.exe` | 在 Windows 电脑运行 `packaging\build_windows.bat`。macOS 无法交叉编译 exe。CI 工作流在 `packaging/github-build-apps.yml`（有 `workflow` 权限时可拷到 `.github/workflows/`）。 |
 
 DMG 内是 `EQ Cosplay.app`，拖到「应用程序」即可。未签名首次打开：系统设置 → 隐私与安全性 → **仍要打开**。
 
