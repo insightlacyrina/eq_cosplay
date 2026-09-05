@@ -1,277 +1,103 @@
-# EQ Cosplay
+# EQ Cosplay (Swift 原生重构版)
 
-**让一副耳机“扮演”另一副耳机的听感** — 基于 [AutoEq](https://github.com/jaakkopasanen/AutoEq) 频响数据，生成固定 **10 段参数均衡（IIR PEQ）**，必要时叠加 **最小相位 FIR 残差**，并通过 [CamillaDSP](https://github.com/HEnquist/camilladsp) 实时播放。
+**让一副耳机“扮演”另一副耳机的听感** — 基于 [AutoEq](https://github.com/jaakkopasanen/AutoEq) 频响数据库，利用 Apple 官方原生技术栈（**Swift 5.9+ / SwiftUI / CoreAudio / Accelerate DSP**）重构实现的现代化 macOS 耳机频响仿真与均衡校正系统。
 
-**Languages / 语言:** [English](README.md) · [中文说明](README.zh-CN.md)
-
-> GitHub **About** 可用短描述：  
-> 耳机 Cosplay EQ：基于 AutoEq 做 Source→Target 频响校正，输出 10 段 IIR PEQ + 可选最小相位 FIR，支持 CamillaDSP 部署。GUI / CLI（中英日）。
+**语言:** [中文说明](README.zh-CN.md) · [English](README.md)
 
 ---
 
-## 获取代码（重要）
+## 🌟 重构亮点与特性
 
-仓库地址：**https://github.com/insightlacyrina/eq_cosplay**  
-请先安装 [Git](https://git-scm.com/downloads)。`git clone` 能保留启动脚本的 `+x`，之后也可用 `git pull` 更新。
+1. **纯粹的 Apple 原生体验**：
+   - 告别 Python 环境与 Tkinter 依赖，编译为原生 macOS Mach-O 机器码，启动毫秒级响应，极低内存占用。
+   - 完美适配 macOS Sonoma、Sequoia 及以上系统与 Apple Silicon (M1/M2/M3/M4/M5) 硬件架构。
 
-如果官方地址 **卡住、超时、TLS 失败**，多半是访问不了 `github.com`（国内常见），请改用下面的镜像，而不是反复重试同一条命令。
+2. **硬件级 Accelerate DSP 运算**：
+   - 使用 Apple 原生 `Accelerate (vDSP)` 执行超高精度实倒谱（Real Cepstrum）变换，极速合成 **8192-tap 最小相位 FIR 残差冲激响应**。
+   - 内置阻尼高斯-牛顿 / Levenberg-Marquardt 非线性最小二乘优化算法，联合优化 **10 段 IIR PEQ（1 Lowshelf + 8 Peaking + 1 Highshelf）**，收敛耗时仅需数十毫秒。
+   - 32-bit Float 单声道 WAV 文件格式写入器，原生对接 CamillaDSP `Conv` 滤波器。
 
+3. **EchoCR 声骸台视觉设计**：
+   - 深度复刻 EchoCR 深色面板美学（面板 `#12161d`、高亮金 `#d4a24a`、薄荷青 `#5eead4`、翡翠绿 `#34d399`、柔红 `#f87171`）。
+   - 高清对数频率坐标 Canvas 矢量绘图引擎，支持 20 Hz – 20,000 Hz 平滑曲线渲染，具备鼠标悬停十字准星与动态频点/分贝指示浮标。
+
+4. **双模运行与菜单栏常驻**：
+   - **独立桌面窗口**：直观的搜索选择、实时频响对比曲线、10 段均衡参数表、实时日志控制台。
+   - **macOS 状态栏常驻 (MenuBarExtra)**：关闭主窗口后在屏幕右上角继续运行，指示引擎状态，支持一键切换本地已存方案、停止引擎与退出。
+   - **终端命令行工具 (CLI)**：配套提供原汁原味的 `eq-cosplay-cli` 交互式终端工具。
+
+5. **无缝兼容原有生态**：
+   - 自动扫描并加载原 Python 项目 `/Users/zhuyongfei/Desktop/eq_cosplay/presets` 下的已有调音预设，无缝迁移。
+   - 自动识别系统内置扬声器、耳机孔、USB DAC、蓝牙耳机及 BlackHole 2ch 虚拟声卡。
+
+---
+
+## 🚀 快速开始
+
+### 1. 运行桌面 App
+在当前目录已打包生成独立 App：
 ```bash
-# 1）直连（能打开 GitHub 时用这条）
-git clone https://github.com/insightlacyrina/eq_cosplay.git
-cd eq_cosplay
+open "dist/EQ Cosplay.app"
+```
+或者在 Finder 中双击 `dist/EQ Cosplay.app`。
 
-# 2）直连失败：走 GitHub 前缀镜像（同一仓库）
-git clone --depth 1 https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay.git
-cd eq_cosplay
-git remote set-url origin https://github.com/insightlacyrina/eq_cosplay.git
+### 2. 运行终端命令行工具
+```bash
+./dist/eq-cosplay-cli
+# 或通过 SwiftPM 源码运行：
+swift run eq-cosplay-cli
 ```
 
-`ghfast.top` 也挂了时再试：
-
+### 3. 运行自动化测试套件
 ```bash
-git clone --depth 1 https://gh-proxy.com/https://github.com/insightlacyrina/eq_cosplay.git
-git clone --depth 1 https://mirror.ghproxy.com/https://github.com/insightlacyrina/eq_cosplay.git
+swift run eq-cosplay-tests
+```
+包含 Biquad 滤波器精度、对数频网格、优化拟合收敛、FFT 可逆性、FIR 最小相位因果性、WAV 写入与 YAML 生成等 24 项全量自动化测试。
+
+### 4. 重新打包 .app
+```bash
+./build_app.sh
+```
+脚本会自动执行 Release 优化编译，提取图标生成 `.icns`，组装 `dist/EQ Cosplay.app` 并完成本地签名。
+
+---
+
+## 📂 项目结构
+
+```
+eq_cosplay_swift/
+├── Package.swift                     # SwiftPM 工程清单
+├── build_app.sh                      # 原生 .app 打包与签名脚本
+├── dist/
+│   ├── EQ Cosplay.app                # 编译打包好的 macOS 独立 App
+│   └── eq-cosplay-cli                # 原生 CLI 独立二进制
+├── assets/                           # 图标与字体资源
+│   ├── icons/
+│   └── fonts/
+├── Sources/
+│   ├── EQCosplayCore/                # 核心功能库
+│   │   ├── DSP/                      # RBJ 滤波器、对数网格、LM 优化器、Accelerate FIR、WAV 写入
+│   │   ├── AutoEq/                   # AutoEq 索引拉取、Markdown 解析、模糊匹配、CSV 下载与缓存
+│   │   ├── Audio/                    # CoreAudio 设备枚举、BlackHole 检测
+│   │   ├── Engine/                   # CamillaDSP YAML 生成、进程管道监控、预设管理
+│   │   ├── Localization/             # 中/英/日动态国际化词库
+│   │   └── Models/                   # 领域实体与 EchoCRTheme 视觉规范
+│   ├── EQCosplayApp/                 # 原生 SwiftUI 界面与菜单栏
+│   │   ├── AppState.swift            # 核心响应式状态机
+│   │   ├── EQCosplayApp.swift        # 主程序入口与 MenuBarExtra
+│   │   └── Views/                    # 频响 Canvas、耳机选择器、PEQ 参数表、日志台
+│   └── EQCosplayCLI/                 # 原生终端命令行入口
+└── Tests/
+    └── EQCosplayTests/               # 全量自动化测试套件
 ```
 
-**没有 Git 时用 ZIP：**  
-[main.zip](https://github.com/insightlacyrina/eq_cosplay/archive/refs/heads/main.zip) · [镜像 zip](https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay/archive/refs/heads/main.zip)
-
-解压后在 macOS / Linux 执行一次：
-
-```bash
-chmod +x start.command start_cli.command cosplay_gui.py cosplay.py
-# 仅 macOS：若 Gatekeeper 拦截启动
-xattr -dr com.apple.quarantine .
-```
-
 ---
 
-## 能做什么
+## 🎧 音频路由配置（与 CamillaDSP）
 
-| 当前佩戴（Source） | 想要的听感（Target） | 输出 |
-|--------------------|----------------------|------|
-| 例如 Sony WH-1000XM4 | 例如 AKG Q701 | IIR PEQ（± FIR），使 Source 频响接近 Target |
-
-**处理流程**
-
-1. 在 AutoEq 结果索引中匹配型号（模糊搜索、多实验室数据源）。  
-2. 下载频响 CSV（含镜像回退；可选离线 CSV）。  
-3. 在对数频率网格上计算 `Target − Source`，做中频电平对齐与平滑。  
-4. 拟合固定 **10 段 IIR**（Lowshelf + 8× Peaking + Highshelf）。  
-5. 关键频段差异仍大时 → 设计 **最小相位 FIR 残差**，供 CamillaDSP 卷积。  
-6. 可选部署 CamillaDSP：虚拟声卡 → 滤波器 → 真实耳机。
-
-PEQ 参数可填入 Equalizer APO、Wavelet 等。**启用 FIR 时的完整残差精度**需要 CamillaDSP 与生成的 WAV 冲激响应。
-
----
-
-## 功能特性
-
-- **对接 AutoEq** — 在线 `INDEX.md`、模糊匹配、多数据源（oratory1990、Rtings 等）；某实验室没有频响 CSV 时自动改用其他来源与 GitHub CDN  
-- **10 段 IIR 拟合** — 残差驱动布点，联合优化 gain / fc / Q，感知加权与软约束  
-- **FIR 残差级** — 不再用“堆很多段 IIR”当精确模式；CamillaDSP `Conv` + 单声道 float WAV  
-- **前级增益** — 安全 / 折中 / 自定义 / 不调整（依据联合响应峰值）  
-- **CamillaDSP 部署** — 方案在 `presets/`，FIR WAV 与配置同目录，**单实例**引擎（仅在真正停掉旧进程时提示）  
-- **GUI + CLI** — Tkinter 界面含当前 / 目标 / 模拟后频响曲线，或终端流程  
-- **多语言** — 英语 / 中文 / 日语  
-- **目录清晰** — `presets/` 存方案，`logs/` 存日志  
-
----
-
-## 运行环境
-
-- Python **3.10+**  
-- **numpy**、**scipy**  
-- GUI 需要 **Tkinter**（Homebrew 示例：`python-tk@3.x`）  
-- 完整系统 EQ 可选：  
-  - [CamillaDSP](https://github.com/HEnquist/camilladsp)（程序内可下载）  
-  - 虚拟声卡：**BlackHole 2ch**（macOS）、**VB-Audio Cable**（Windows）、loopback / 虚拟 sink（Linux）  
-
----
-
-## 快速开始
-
-### 打包应用
-
-不需要本机安装 Python 的发行包：
-
-| 平台 | 产物 | 构建 |
-|------|------|------|
-| **macOS** | `dist/EQ-Cosplay-macOS.dmg` | `bash packaging/build_macos.sh` |
-| **Windows** | `dist/EQCosplay.exe` | 在 Windows 电脑运行 `packaging\build_windows.bat`。macOS 无法交叉编译 exe。CI 工作流在 `packaging/github-build-apps.yml`（有 `workflow` 权限时可拷到 `.github/workflows/`）。 |
-
-DMG 内是 `EQ Cosplay.app`，拖到「应用程序」即可。未签名首次打开：系统设置 → 隐私与安全性 → **仍要打开**。
-
-Windows 为单文件窗口程序。方案与日志写到 `%APPDATA%\EQ Cosplay\`。macOS 写到 `~/Library/Application Support/EQ Cosplay/`，同时仍会列出 `~/Desktop/eq_cosplay/presets` 里已有的 YAML。
-
-### macOS 菜单栏
-
-macOS 上会在屏幕右上角状态栏放一个 **EQ** 图标。点击可：
-
-- 查看 CamillaDSP 是否在运行
-- 快捷切换本机已保存的调音方案（`presets/` 下的 YAML）
-- 显示 / 隐藏主窗口
-- 停止引擎或退出
-
-关闭主窗口**不会退出**，引擎继续跑，图标留在状态栏。要从状态栏选「退出 EQ Cosplay」，或按 Cmd-Q。
-
-图形界面视觉（深色面板、金色方标、青绿主按钮、日志等宽字体）对齐本机 EchoCR 声骸台：界面字体为方心书，日志为 JetBrains Mono。
-
-### 启动方式
-
-| 平台 | GUI | 终端 |
-|------|-----|------|
-| **Windows** | 双击 `start.bat` | `start_cli.bat` 或 `start.bat --cli` |
-| **macOS** | 双击 `start.command` | `start_cli.command` / `start.command --cli` |
-| **Linux** | `bash start.command` | `bash start.command --cli` |
-
-```bash
-# 推荐：先 git clone
-cd eq_cosplay
-
-# macOS / Linux
-./start.command          # GUI（默认）
-./start.command --cli    # 终端
-
-# Windows（cmd / 资源管理器）
-start.bat                # GUI
-start_cli.bat            # 终端
-```
-
-首次运行会创建 `.venv`、安装依赖并启动程序。
-
-**Windows 说明：** `start.command` 是 bash 脚本，**不能**在 Windows 上启动 GUI，请用 **`start.bat`**。启动器会尝试 `py -3` / `python` / `python3`，并创建 `.venv\Scripts\…`。若缺少 Tk，请用 [python.org](https://www.python.org/downloads/) 安装包重装，勾选 **“tcl/tk and IDLE”** 与 **Add to PATH**。
-
-macOS 的 `start.command` 还包含**新机预检**：恢复 `+x`、尽量清除 quarantine、项目在桌面/文稿/下载时提示、失败时窗口不立刻关闭。
-
-### macOS 新机清单
-
-1. 优先 **`git clone`**，少用 ZIP。  
-2. 尽量不要把项目放在桌面 / 文稿 / 下载（可用如 `~/Developer/eq_cosplay`），减少“终端要访问文件夹”弹窗。  
-3. 若双击被 Gatekeeper 拦截：
+1. **虚拟声卡**：推荐安装 [BlackHole 2ch](https://github.com/ExistentialAudio/BlackHole)：
    ```bash
-   cd /path/to/eq_cosplay
-   chmod +x start.command start_cli.command
-   xattr -dr com.apple.quarantine .
-   open start.command
+   brew install blackhole-2ch
    ```
-4. 终端询问访问桌面等目录时 → 选 **允许**。  
-5. 首次运行未签名的 CamillaDSP：系统设置 → 隐私与安全性 → **仍要打开**，或：
-   ```bash
-   xattr -dr com.apple.quarantine ./camilladsp
-   ```
-6. GUI 需要 Tk：`brew install python-tk`（或与 Python 版本匹配的 `python-tk@3.12` 等）。  
-7. 完整系统 EQ 需要虚拟线（如 BlackHole 2ch）以及真实播放设备名。  
-
-### 手动安装
-
-```bash
-git clone https://github.com/insightlacyrina/eq_cosplay.git
-# 若 github.com 无法访问：
-# git clone --depth 1 https://ghfast.top/https://github.com/insightlacyrina/eq_cosplay.git
-cd eq_cosplay
-python3 -m venv .venv
-source .venv/bin/activate          # Windows: .venv\Scripts\activate
-pip install -r requirements.txt
-python cosplay_gui.py              # GUI
-# python cosplay.py                # CLI
-```
-
-### 典型使用流程
-
-1. 选择采样率（如 48000 Hz）。  
-2. 输入 **Source**（当前耳机）与 **Target**（想 Cosplay 的型号）。  
-3. 查看差值概览与 10 段 PEQ 表。  
-4. 选择前级增益模式。  
-5. 部署 CamillaDSP（需要 FIR 时会自动写 WAV）。  
-6. 系统输出设为**虚拟采集设备**；CamillaDSP 播放到**真实耳机**。  
-
-GUI 中若启用了 FIR，可在绿色 FIR 提示下方使用 **「停止 FIR」** 全宽按钮：关闭 FIR、按仅 IIR 重写配置并重启引擎。
-
----
-
-## 目录结构
-
-```text
-eq_cosplay/
-├── cosplay.py           # 核心：AutoEq、PEQ/FIR、CamillaDSP
-├── cosplay_gui.py       # Tkinter 界面（EchoCR 视觉）
-├── theme.py             # 深色主题、方心书 + JetBrains Mono
-├── menubar_macos.py     # macOS 状态栏切换本机方案
-├── assets/              # 字体与图标
-├── eq_cosplay.spec      # PyInstaller 打包
-├── packaging/           # DMG / EXE 构建脚本
-├── start.command        # macOS/Linux 启动 + GUI
-├── start_cli.command    # macOS/Linux 终端
-├── start.bat            # Windows 启动 + GUI
-├── start_cli.bat        # Windows 终端
-├── requirements.txt     # Python 依赖
-├── README.md            # 英文说明
-├── README.zh-CN.md      # 中文说明（本文件）
-├── presets/             # 已保存 YAML + FIR WAV（一般被 gitignore）
-├── logs/                # 会话与引擎日志（gitignore）
-├── offline_csvs/        # 可选离线测量 CSV
-└── LICENSE
-```
-
-请勿提交 CamillaDSP 二进制或本机 `presets/`、`logs/`（除非你有意为之）。
-
----
-
-## 校正模型（简要）
-
-1. Source/Target 频响插值到对数网格（约 20 Hz–20 kHz）。  
-2. 中频段（200–2000 Hz）**电平对齐** + 分数倍频程**平滑**（供 IIR）。  
-3. 对平滑后的对齐差值拟合固定 **10 段 IIR**。  
-4. 按关键频段统计和/或 IIR 残差 RMSE 决定是否做 **FIR 残差**。  
-5. 联合响应 ≈ 对齐后的差值；前级取自联合响应峰值。  
-
-跨实验室组合（如 oratory → Rtings）高频仍可能有残差；在幅度差可表示时，FIR 会有帮助。
-
----
-
-## CamillaDSP（含 FIR 时）
-
-示意链路：
-
-```text
-前级增益 → FIR 卷积（左/右 WAV）→ 10 段 Biquad PEQ
-```
-
-同时只保留 **一个** `camilladsp` 进程。启动新会话会停掉旧实例，**仅在确实停掉了进程时**打印提示。
-
-| 系统 | 采集（虚拟） | 播放 |
-|------|--------------|------|
-| macOS | BlackHole 2ch | 真实耳机/音箱 |
-| Windows | VB-Audio Cable | 真实输出 |
-| Linux | ALSA/PipeWire 虚拟设备 | 真实输出 |
-
-不要把采集与播放都设成同一个虚拟设备。
-
----
-
-## 致谢
-
-- [AutoEq](https://github.com/jaakkopasanen/AutoEq) — 测量与社区结果  
-- [CamillaDSP](https://github.com/HEnquist/camilladsp) — 实时路由与滤波  
-- RBJ Audio EQ Cookbook — 双二阶系数  
-
-本项目为独立工具，与 AutoEq、CamillaDSP 上游无隶属关系。
-
----
-
-## 免责声明
-
-均衡无法完整复现另一副耳机的音色、定位与非线性失真。不同实验室补偿与绝对电平不同；对齐能减轻但不能消除差异。请合理设置前级，注意听力健康。
-
----
-
-## 许可证
-
-本仓库自有源码（Python 脚本、启动器、文档）采用 **MIT License**，见 [LICENSE](LICENSE)。
-
-第三方组件仍遵循其原许可：
-
-- AutoEq 测量数据：再分发 CSV 时请遵守 AutoEq / 原测量者条款。  
-- CamillaDSP：GPL-3.0 **或** MPL-2.0（见上游）。建议**运行时下载**，不要把二进制提交进本仓库（除非你清楚兼容策略）。  
+2. **系统设置**：在 macOS **系统设置 → 声音 → 输出** 中，将输出选择为 **BlackHole 2ch**。
+3. **播放声音**：在 EQ Cosplay 中点击 **“应用并启动 CamillaDSP”**，系统声音将经由 CamillaDSP 实时进行 10 段 IIR + 最小相位 FIR 残差校正，并输出到您真实的物理耳机上。

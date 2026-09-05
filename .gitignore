@@ -1,72 +1,13 @@
-# --- Python ---
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg-info/
-.eggs/
+.build/
+.swiftpm/
 dist/
 build/
-.pytest_cache/
-.mypy_cache/
-.ruff_cache/
-.coverage
-htmlcov/
-.tox/
-.nox/
-.venv/
-venv/
-ENV/
-env/
-
-# User-dropped exports (canonical copies live in assets/icons/)
-ChatGPT Image*.png
-ChatGPT Image*.jpg
-主题.png
-
-# Packaged apps (rebuild with packaging/build_*.sh)
-packaging/*.icns
-packaging/*.ico
-packaging/*.iconset/
-
-# --- Project runtime / generated ---
-# Virtual env & local engine binary (downloaded per machine)
-camilladsp
-camilladsp.exe
-*.tar.gz
-*.zip
-!docs/**/*.zip
-
-# Saved CamillaDSP configs & FIR IRs (user-specific; large binary WAVs)
-presets/
-*.wav
-
-# Logs (all session / engine logs live under logs/)
-logs/
+__pycache__/
 *.log
-
-# Optional offline measurement dumps (may be large / redistributable under separate terms)
-offline_csvs/
-
-# Legacy root-level generated configs (if any remain locally)
-cosplay_config.yml
-cosplay_*.yml
-!docs/**/*.yml
-
-# --- OS / editor ---
+logs/
 .DS_Store
-.AppleDouble
-.LSOverride
-Thumbs.db
-Desktop.ini
-.idea/
-.vscode/
-*.swp
-*.swo
-*~
-
-# --- Secrets / local overrides ---
-.env
-.env.*
-*.local
+camilladsp
+.venv/
+packaging/
+*.png
+!assets/icons/*.png
