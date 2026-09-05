@@ -114,7 +114,7 @@ public struct FrequencyResponsePlotView: View {
                             drawCurve(ctx: ctx, freqs: freqs, mags: result.targetCurve, color: Color.white, lineWidth: 1.8, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
                             drawCurve(ctx: ctx, freqs: freqs, mags: result.simulatedCurve, color: Color(red: 0.35, green: 0.85, blue: 0.75), lineWidth: 2.2, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
                         } else {
-                            let emptyText = Text("选择耳机后点击「拟合校正曲线」生成频响")
+                            let emptyText = Text(I18n.shared.t("plot_empty_hint"))
                                 .font(.system(size: 12))
                                 .foregroundColor(.secondary)
                             ctx.draw(emptyText, at: CGPoint(x: padL + plotW / 2, y: padT + plotH / 2), anchor: .center)

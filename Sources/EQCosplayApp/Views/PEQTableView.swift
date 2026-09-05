@@ -117,7 +117,7 @@ public struct PEQTableView: View {
                 } else {
                     VStack {
                         Spacer()
-                        Text("尚未生成均衡器参数")
+                        Text(I18n.shared.t("peq_empty_hint"))
                             .font(.system(size: 11))
                             .foregroundColor(.secondary)
                         Spacer()

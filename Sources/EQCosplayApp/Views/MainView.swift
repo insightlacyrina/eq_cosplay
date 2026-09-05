@@ -37,7 +37,6 @@ extension View {
 
 public struct MainView: View {
     @ObservedObject var appState: AppState
-    @State private var currentLang: Language = I18n.shared.currentLanguage
 
     public init(appState: AppState) {
         self.appState = appState
@@ -55,7 +54,7 @@ public struct MainView: View {
                         .fill(appState.isEngineRunning ? Color.primary : (appState.isCalculating ? Color.primary.opacity(0.7) : Color.secondary.opacity(0.35)))
                         .frame(width: 6, height: 6)
 
-                    Text(appState.localizedStatus(for: currentLang))
+                    Text(appState.localizedStatus(for: appState.currentLanguage))
                         .font(.system(size: 11, weight: .medium))
                         .foregroundColor(appState.isEngineRunning ? .primary : .secondary)
                 }
@@ -68,10 +67,9 @@ public struct MainView: View {
                     id: "language",
                     items: Language.allCases,
                     selectedItem: Binding(
-                        get: { currentLang },
+                        get: { appState.currentLanguage },
                         set: { newLang in
-                            currentLang = newLang
-                            I18n.shared.currentLanguage = newLang
+                            appState.currentLanguage = newLang
                         }
                     ),
                     activeDropdownId: $appState.activeDropdownId,
@@ -124,6 +122,7 @@ public struct MainView: View {
                         .frame(height: 150)
                 }
             }
+            .id(appState.currentLanguage)
             .padding(.horizontal, 14)
             .padding(.bottom, 14)
         }

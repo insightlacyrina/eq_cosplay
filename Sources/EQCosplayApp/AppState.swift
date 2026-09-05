@@ -33,6 +33,12 @@ public final class AppState: ObservableObject {
     // Active dropdown coordinator: ensures only one dropdown/search popup is open at a time
     @Published public var activeDropdownId: String? = nil
 
+    @Published public var currentLanguage: Language = I18n.shared.currentLanguage {
+        didSet {
+            I18n.shared.currentLanguage = currentLanguage
+        }
+    }
+
     public init() {
         self.outputDevices = CoreAudioService.getAudioOutputDevices()
         // Priority 1: Use the system's actual default playback device (speakers, USB DAC, or connected headphones)
