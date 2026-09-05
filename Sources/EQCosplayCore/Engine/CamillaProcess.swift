@@ -27,9 +27,9 @@ public final class CamillaProcess: @unchecked Sendable {
             try? FileManager.default.removeItem(at: testFile)
             return dir
         } catch {
-            let desktopLogs = URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/logs")
-            if (try? FileManager.default.createDirectory(at: desktopLogs, withIntermediateDirectories: true)) != nil {
-                return desktopLogs
+            let cwdLogs = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("logs", isDirectory: true)
+            if (try? FileManager.default.createDirectory(at: cwdLogs, withIntermediateDirectories: true)) != nil {
+                return cwdLogs
             }
             let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("EQCosplay/logs", isDirectory: true)
             try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
@@ -37,8 +37,15 @@ public final class CamillaProcess: @unchecked Sendable {
         }
     }
 
+    public static func getBinDirectory() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("EQ Cosplay/bin", isDirectory: true)
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
+    }
+
     public static func findExecutable() -> URL? {
-        // 1. Check App bundle
+        // 1. Check App bundle Resources
         if let bundleUrl = Bundle.main.url(forResource: "camilladsp", withExtension: nil) {
             return bundleUrl
         }
@@ -49,13 +56,14 @@ public final class CamillaProcess: @unchecked Sendable {
 
         // 2. Candidate paths
         let home = FileManager.default.homeDirectoryForCurrentUser
+        let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         let candidates = [
-            URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/dist/EQ Cosplay.app/Contents/Resources/camilladsp"),
-            URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay/camilladsp"),
-            URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/camilladsp"),
+            getBinDirectory().appendingPathComponent("camilladsp"),
+            cwd.appendingPathComponent("camilladsp"),
+            cwd.appendingPathComponent("dist/EQ Cosplay.app/Contents/Resources/camilladsp"),
+            Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("camilladsp"),
             URL(fileURLWithPath: "/opt/homebrew/bin/camilladsp"),
             URL(fileURLWithPath: "/usr/local/bin/camilladsp"),
-            home.appendingPathComponent("Library/Application Support/EQ Cosplay/bin/camilladsp"),
             home.appendingPathComponent(".cargo/bin/camilladsp")
         ]
 
@@ -83,6 +91,74 @@ public final class CamillaProcess: @unchecked Sendable {
         }
 
         return nil
+    }
+
+    @discardableResult
+    public static func downloadCamillaDSP(onLog: ((String) -> Void)? = nil) async throws -> URL {
+        let binDir = getBinDirectory()
+        let destExe = binDir.appendingPathComponent("camilladsp")
+        if FileManager.default.isExecutableFile(atPath: destExe.path) {
+            return destExe
+        }
+
+        #if arch(arm64)
+        let archTar = "camilladsp-macos-aarch64.tar.gz"
+        #else
+        let archTar = "camilladsp-macos-x86_64.tar.gz"
+        #endif
+
+        onLog?("[..] 正在自动从 GitHub Releases 下载 CamillaDSP (\(archTar))...")
+
+        guard let releaseURL = URL(string: "https://github.com/HEnquist/camilladsp/releases/latest/download/\(archTar)") else {
+            throw NSError(domain: "CamillaProcess", code: 400, userInfo: [NSLocalizedDescriptionKey: "无效的 CamillaDSP 下载地址"])
+        }
+
+        let tempTar = binDir.appendingPathComponent(archTar)
+        try? FileManager.default.removeItem(at: tempTar)
+
+        var request = URLRequest(url: releaseURL, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 45)
+        request.setValue("EQCosplay/1.1.7 (macOS)", forHTTPHeaderField: "User-Agent")
+
+        let (tempFile, response) = try await URLSession.shared.download(for: request)
+        guard let http = response as? HTTPURLResponse, (200...299).contains(http.statusCode) else {
+            let code = (response as? HTTPURLResponse)?.statusCode ?? -1
+            throw NSError(domain: "CamillaProcess", code: code, userInfo: [NSLocalizedDescriptionKey: "下载 CamillaDSP 失败 (HTTP \(code))"])
+        }
+
+        try FileManager.default.moveItem(at: tempFile, to: tempTar)
+        onLog?("[..] 正在解压 CamillaDSP 归档...")
+
+        let tarProc = Process()
+        tarProc.executableURL = URL(fileURLWithPath: "/usr/bin/tar")
+        tarProc.arguments = ["-xzf", tempTar.path, "-C", binDir.path]
+        try tarProc.run()
+        tarProc.waitUntilExit()
+
+        try? FileManager.default.removeItem(at: tempTar)
+
+        guard FileManager.default.isExecutableFile(atPath: destExe.path) || FileManager.default.fileExists(atPath: destExe.path) else {
+            throw NSError(domain: "CamillaProcess", code: 500, userInfo: [NSLocalizedDescriptionKey: "解压后未找到 camilladsp 可执行程序"])
+        }
+
+        // Set executable permissions
+        try? FileManager.default.setAttributes([.posixPermissions: 0o755], ofItemAtPath: destExe.path)
+
+        // Clear quarantine flag
+        let xattrProc = Process()
+        xattrProc.executableURL = URL(fileURLWithPath: "/usr/bin/xattr")
+        xattrProc.arguments = ["-dr", "com.apple.quarantine", destExe.path]
+        try? xattrProc.run()
+        xattrProc.waitUntilExit()
+
+        onLog?("[OK] CamillaDSP 已安装就绪: \(destExe.path)")
+        return destExe
+    }
+
+    public static func ensureExecutable(onLog: ((String) -> Void)? = nil) async throws -> URL {
+        if let existing = findExecutable() {
+            return existing
+        }
+        return try await downloadCamillaDSP(onLog: onLog)
     }
 
     public static func stopExistingInstances() {

@@ -1,0 +1,136 @@
+---
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "外置耳机"
+
+filters:
+  preamp_gain:
+    type: Gain
+    parameters:
+      gain: -9.988119729047067
+      inverted: false
+
+  fir_left:
+    type: Conv
+    parameters:
+      type: Wav
+      filename: "/Users/zhuyongfei/Desktop/eq_cosplay/presets/cosplay_Sony_WH-1000XM4_oratory1990_to_Sony_MDR-7506_oratory1990_fir_left.wav"
+      channel: 0
+
+  fir_right:
+    type: Conv
+    parameters:
+      type: Wav
+      filename: "/Users/zhuyongfei/Desktop/eq_cosplay/presets/cosplay_Sony_WH-1000XM4_oratory1990_to_Sony_MDR-7506_oratory1990_fir_right.wav"
+      channel: 0
+
+  peq_01:
+    type: Biquad
+    parameters:
+      type: Lowshelf
+      freq: 33.2
+      gain: -8.16
+      q: 0.85
+  peq_02:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 114.9
+      gain: -4.7
+      q: 0.64
+  peq_03:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 225.7
+      gain: -2.62
+      q: 2.5
+  peq_04:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 384.6
+      gain: 2.75
+      q: 2.1
+  peq_05:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 925.7
+      gain: 5.55
+      q: 1.52
+  peq_06:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 1204.7
+      gain: -5.99
+      q: 0.83
+  peq_07:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 2399.9
+      gain: 9.49
+      q: 1.18
+  peq_08:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 6688.3
+      gain: 7.78
+      q: 4.0
+  peq_09:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 14000.0
+      gain: -6.3
+      q: 2.4
+  peq_10:
+    type: Biquad
+    parameters:
+      type: Highshelf
+      freq: 4470.5
+      gain: 0.4
+      q: 1.4
+
+pipeline:
+  - type: Filter
+    channels: [0]
+    names:
+      - preamp_gain
+      - fir_left
+      - peq_01
+      - peq_02
+      - peq_03
+      - peq_04
+      - peq_05
+      - peq_06
+      - peq_07
+      - peq_08
+      - peq_09
+      - peq_10
+  - type: Filter
+    channels: [1]
+    names:
+      - preamp_gain
+      - fir_right
+      - peq_01
+      - peq_02
+      - peq_03
+      - peq_04
+      - peq_05
+      - peq_06
+      - peq_07
+      - peq_08
+      - peq_09
+      - peq_10

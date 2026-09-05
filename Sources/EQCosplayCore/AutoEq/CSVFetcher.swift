@@ -129,9 +129,17 @@ public enum CSVFetcher {
     public static func fetchCSVWithDetails(for entry: HeadphoneEntry) async throws -> (freqs: [Double], mags: [Double], usedEntry: HeadphoneEntry) {
         let candidates = providerCandidates(for: entry)
         let cacheDir = getCacheDir()
-        let desktopFallbackDir = URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay/offline_csvs")
+        // Collect offline CSV fallback directories (bundle, current directory, app support)
+        var offlineDirs: [URL] = [
+            URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("offline_csvs"),
+            FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!.appendingPathComponent("EQ Cosplay/offline_csvs"),
+            Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("offline_csvs")
+        ]
+        if let bundleOffline = Bundle.main.resourceURL?.appendingPathComponent("offline_csvs") {
+            offlineDirs.append(bundleOffline)
+        }
 
-        // 1. Check local cache across all candidates first
+        // 1. Check local cache and offline directories across all candidates first
         for candidate in candidates {
             let specificCache = cacheDir.appendingPathComponent("\(safeFilename(for: "\(candidate.name)_\(candidate.provider)")).csv")
             if FileManager.default.fileExists(atPath: specificCache.path),
@@ -147,12 +155,14 @@ public enum CSVFetcher {
                 return (parsed.freqs, parsed.mags, candidate)
             }
 
-            let desktopSpecific = desktopFallbackDir.appendingPathComponent("\(safeFilename(for: "\(candidate.name)_\(candidate.provider)")).csv")
-            if FileManager.default.fileExists(atPath: desktopSpecific.path),
-               let data = try? Data(contentsOf: desktopSpecific),
-               let parsed = parseCSVData(data) {
-                try? data.write(to: specificCache)
-                return (parsed.freqs, parsed.mags, candidate)
+            for offlineDir in offlineDirs {
+                let offlineSpecific = offlineDir.appendingPathComponent("\(safeFilename(for: "\(candidate.name)_\(candidate.provider)")).csv")
+                if FileManager.default.fileExists(atPath: offlineSpecific.path),
+                   let data = try? Data(contentsOf: offlineSpecific),
+                   let parsed = parseCSVData(data) {
+                    try? data.write(to: specificCache)
+                    return (parsed.freqs, parsed.mags, candidate)
+                }
             }
         }
 

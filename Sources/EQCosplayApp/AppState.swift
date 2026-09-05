@@ -29,9 +29,18 @@ public final class AppState: ObservableObject {
     @Published public var savedPresets: [PresetInfo] = []
     @Published public var logs: [String] = []
     @Published public var isBlackHoleFound = true
+    @Published public var isInstallingBlackHole = false
 
     // Active dropdown coordinator: ensures only one dropdown/search popup is open at a time
     @Published public var activeDropdownId: String? = nil
+    @Published public var activeExpandedPresetId: String? = nil
+
+    @Published public var isFIREnabled: Bool = true
+
+    public var hasFIRData: Bool {
+        guard let res = correctionResult else { return false }
+        return res.firIr != nil && !(res.firIr?.isEmpty ?? true)
+    }
 
     @Published public var currentLanguage: Language = I18n.shared.currentLanguage {
         didSet {
@@ -112,6 +121,37 @@ public final class AppState: ObservableObject {
         appendLog("[..] Loading AutoEq database...")
         await AutoEqService.shared.loadDatabase()
         appendLog("[OK] Loaded \(AutoEqService.shared.database.count) headphone models from AutoEq.")
+
+        // Preflight: If CamillaDSP is not found, prefetch silently in background
+        if CamillaProcess.findExecutable() == nil {
+            Task.detached { [weak self] in
+                try? await CamillaProcess.downloadCamillaDSP { msg in
+                    Task { @MainActor in self?.appendLog(msg) }
+                }
+            }
+        }
+    }
+
+    public func installBlackHole() {
+        guard !isInstallingBlackHole else { return }
+        isInstallingBlackHole = true
+        appendLog("[..] 正在启动 BlackHole 虚拟声卡驱动安装流程...")
+
+        Task {
+            let success = await BlackHoleManager.installBlackHole { [weak self] msg in
+                Task { @MainActor in
+                    self?.appendLog(msg)
+                }
+            }
+
+            await MainActor.run {
+                self.isInstallingBlackHole = false
+                self.refreshDevices()
+                if success || self.isBlackHoleFound {
+                    self.appendLog("[OK] BlackHole 虚拟音频驱动检测成功！")
+                }
+            }
+        }
     }
 
     public func searchSource() {
@@ -160,6 +200,7 @@ public final class AppState: ObservableObject {
             )
 
             self.correctionResult = result
+            self.isFIREnabled = result.useFir
             let gain = preampMode.calculateGain(peak: result.responsePeak)
             appendLog("[OK] Correction calculated. Preamp: \(String(format: "%.2f", gain)) dB. RMSE: \(String(format: "%.2f", result.peqRmse)) dB.")
         } catch {
@@ -169,15 +210,73 @@ public final class AppState: ObservableObject {
         isCalculating = false
     }
 
-    public func deployCamillaDSP() {
+    public func toggleFIR() {
+        guard hasFIRData, let result = correctionResult else { return }
+        isFIREnabled.toggle()
+
+        var updated = result
+        updated.useFir = isFIREnabled
+        let gridFreqs = result.gridFreqs
+        let peqResp = result.peqResponse
+        let fs = Double(sampleRate.rawValue)
+
+        var combinedResp = peqResp
+        if isFIREnabled, let ir = result.firIr, !ir.isEmpty {
+            let firResp = FIRDesigner.firResponseDb(freqs: gridFreqs, ir: ir, fs: fs)
+            for i in 0..<512 {
+                combinedResp[i] = peqResp[i] + firResp[i]
+            }
+        }
+
+        var peak = -Double.infinity
+        var valley = Double.infinity
+        var simulatedCurve = [Double](repeating: 0.0, count: 512)
+        for i in 0..<512 {
+            let v = combinedResp[i]
+            if v > peak { peak = v }
+            if v < valley { valley = v }
+            simulatedCurve[i] = result.sourceCurve[i] + v
+        }
+
+        updated.simulatedCurve = simulatedCurve
+        updated.responsePeak = peak.isInfinite ? 0.0 : peak
+        updated.responseValley = valley.isInfinite ? 0.0 : valley
+        self.correctionResult = updated
+
+        appendLog(isFIREnabled ? "[i] FIR 卷积滤波已开启。" : "[i] FIR 卷积滤波已关闭，已切换为仅 IIR 滤波。")
+
+        if isEngineRunning, selectedDevice != nil {
+            deployCamillaDSP(isRestart: true)
+        }
+    }
+
+    public func deployCamillaDSP(isRestart: Bool = false) {
+        Task {
+            await deployCamillaDSPInternal(isRestart: isRestart)
+        }
+    }
+
+    private func deployCamillaDSPInternal(isRestart: Bool = false) async {
         guard let result = correctionResult, let device = selectedDevice else {
             appendLog("[!] 缺少拟合结果或未选择播放输出设备。")
             return
         }
 
         guard isBlackHoleFound, let blackHoleId = BlackHoleManager.getBlackHoleDeviceID() else {
-            appendLog("[ERR] 未检测到 BlackHole 2ch 虚拟声卡。请先安装 BlackHole 驱动。")
+            appendLog("[ERR] 未检测到 BlackHole 2ch 虚拟声卡。请先点击下方「一键安装驱动」。")
             return
+        }
+
+        if CamillaProcess.findExecutable() == nil {
+            appendLog("[..] 未检测到 CamillaDSP 引擎，正在自动从 GitHub Releases 下载...")
+            do {
+                _ = try await CamillaProcess.downloadCamillaDSP { [weak self] msg in
+                    Task { @MainActor in self?.appendLog(msg) }
+                }
+            } catch {
+                appendLog("[ERR] 自动获取 CamillaDSP 失败: \(error.localizedDescription)")
+                return
+            }
         }
 
         do {
@@ -190,7 +289,7 @@ public final class AppState: ObservableObject {
             var leftPath: String? = nil
             var rightPath: String? = nil
 
-            if let ir = result.firIr, !ir.isEmpty {
+            if isFIREnabled, let ir = result.firIr, !ir.isEmpty {
                 let leftUrl = dir.appendingPathComponent("active_fir_left.wav")
                 let rightUrl = dir.appendingPathComponent("active_fir_right.wav")
                 let floatSamples = ir.map { Float($0) }
@@ -211,10 +310,30 @@ public final class AppState: ObservableObject {
                 preampGain: preampGain,
                 firLeftPath: leftPath,
                 firRightPath: rightPath,
-                metrics: ["peq_rmse": result.peqRmse, "combined_rmse": result.combinedRmse]
+                metrics: ["peq_rmse": result.peqRmse, "combined_rmse": result.combinedRmse, "response_peak": result.responsePeak]
             )
 
             try yaml.write(to: configURL, atomically: true, encoding: .utf8)
+
+            // Auto-save to local presets directory unless it's just a runtime toggle/restart
+            if !isRestart, let src = selectedSource, let tgt = selectedTarget {
+                do {
+                    let savedUrl = try PresetsManager.savePreset(
+                        source: src,
+                        target: tgt,
+                        bands: result.peqBands,
+                        outputDeviceName: device.name,
+                        sampleRate: sampleRate.rawValue,
+                        preampGain: preampGain,
+                        firIr: (isFIREnabled ? result.firIr : nil),
+                        metrics: ["peq_rmse": result.peqRmse, "combined_rmse": result.combinedRmse, "response_peak": result.responsePeak]
+                    )
+                    appendLog("[OK] 方案已保存至本地方案库: \(savedUrl.lastPathComponent)")
+                    refreshPresets()
+                } catch {
+                    appendLog("[WARN] 自动保存预设失败: \(error.localizedDescription)")
+                }
+            }
 
             appendLog("[..] 正在启动 CamillaDSP 引擎 (采集: \(captureName) -> 播放: \(device.name))...")
             try CamillaProcess.shared.start(configPath: configURL)
@@ -230,7 +349,8 @@ public final class AppState: ObservableObject {
             }
 
             self.isEngineRunning = true
-            self.activePresetTitle = "\(selectedSource?.name ?? "") → \(selectedTarget?.name ?? "")"
+            let title = "\(selectedSource?.name ?? "") → \(selectedTarget?.name ?? "")"
+            self.activePresetTitle = title.isEmpty ? "CamillaDSP" : title
             appendLog("[OK] CamillaDSP 已启动，声音由 BlackHole 采集滤波并输出至: \(device.name)")
             appendLog("[TIP] 若无声，请确认系统输出已选择 BlackHole 2ch，且输出设备为: \(device.name)")
         } catch {
@@ -283,11 +403,49 @@ public final class AppState: ObservableObject {
     }
 
     public func loadPreset(_ preset: PresetInfo) {
+        Task {
+            await loadPresetInternal(preset)
+        }
+    }
+
+    private func loadPresetInternal(_ preset: PresetInfo) async {
         guard let device = selectedDevice else {
             appendLog("[!] 请选择播放输出设备。")
             return
         }
         appendLog("[..] 正在加载预设: \(preset.name)...")
+
+        if CamillaProcess.findExecutable() == nil {
+            appendLog("[..] 未检测到 CamillaDSP 引擎，正在自动从 GitHub Releases 下载...")
+            do {
+                _ = try await CamillaProcess.downloadCamillaDSP { [weak self] msg in
+                    Task { @MainActor in self?.appendLog(msg) }
+                }
+            } catch {
+                appendLog("[ERR] 自动获取 CamillaDSP 失败: \(error.localizedDescription)")
+                return
+            }
+        }
+
+        // Restore preset parameters, FIR, metrics and curves into correctionResult
+        if let details = PresetsManager.loadPresetDetails(from: preset.path) {
+            self.isFIREnabled = details.hasFir
+            let restored = CorrectionEngine.createResultFromPreset(
+                bands: details.bands,
+                firIr: details.firIr,
+                metrics: details.metrics,
+                fs: Double(details.sampleRate > 0 ? details.sampleRate : sampleRate.rawValue),
+                useFir: details.hasFir
+            )
+            self.correctionResult = restored
+            if !preset.sourceName.isEmpty {
+                self.selectedSource = HeadphoneEntry(name: preset.sourceName, form: "", rig: "", provider: "", relativePath: "")
+            }
+            if !preset.targetName.isEmpty {
+                self.selectedTarget = HeadphoneEntry(name: preset.targetName, form: "", rig: "", provider: "", relativePath: "")
+            }
+        }
+
         do {
             // Apply current selected playback device to preset YAML (matching original Python behavior)
             let activeConfigURL = try PresetsManager.preparePresetForLaunch(

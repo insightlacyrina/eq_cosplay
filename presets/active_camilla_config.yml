@@ -1,0 +1,16 @@
+devices:
+  enable_rate_adjust: true
+  resampler:
+    type: Synchronous
+  samplerate: 48000
+  chunksize: 1024
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "MacBook Pro扬声器"
+
+filters:

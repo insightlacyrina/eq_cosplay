@@ -91,6 +91,8 @@ public final class I18n: @unchecked Sendable {
             "fir_status": "FIR 状态",
             "fir_active": "启用最小相位 FIR 残差卷积 ({taps} Taps)",
             "fir_inactive": "未启用 (IIR 已满足容差)",
+            "fir_stop": "停止 FIR",
+            "fir_enable": "开启 FIR",
             "preamp_label": "前级增益防削波",
             "preamp_safe": "安全模式 (-(峰值+0.2) dB)",
             "preamp_moderate": "折中模式 (-峰值/2 dB)",
@@ -110,6 +112,8 @@ public final class I18n: @unchecked Sendable {
             "menubar_stop": "停止 CamillaDSP",
             "menubar_quit": "退出 EQ Cosplay",
             "blackhole_warning": "未检测到 BlackHole 2ch 虚拟音频驱动，CamillaDSP 系统捕获需要虚拟声卡支持。",
+            "install_blackhole": "一键安装驱动",
+            "installing_blackhole": "正在安装驱动...",
             "camilla_not_found": "未找到 CamillaDSP 可执行程序，请将其放置在应用目录或 PATH 中。"
         ],
         .en: [
@@ -147,6 +151,8 @@ public final class I18n: @unchecked Sendable {
             "fir_status": "FIR Residual",
             "fir_active": "Minimum-phase FIR Conv Active ({taps} Taps)",
             "fir_inactive": "Inactive (IIR meets tolerance)",
+            "fir_stop": "Stop FIR",
+            "fir_enable": "Enable FIR",
             "preamp_label": "Preamp Gain (Anti-clipping)",
             "preamp_safe": "Safe (-(peak+0.2) dB)",
             "preamp_moderate": "Moderate (-peak/2 dB)",
@@ -166,6 +172,8 @@ public final class I18n: @unchecked Sendable {
             "menubar_stop": "Stop CamillaDSP",
             "menubar_quit": "Quit EQ Cosplay",
             "blackhole_warning": "BlackHole 2ch was not found. System-wide routing requires a virtual audio device.",
+            "install_blackhole": "Install Driver",
+            "installing_blackhole": "Installing...",
             "camilla_not_found": "CamillaDSP binary not found. Place it in the app directory or install via PATH."
         ],
         .ja: [
@@ -203,6 +211,8 @@ public final class I18n: @unchecked Sendable {
             "fir_status": "FIR 残差",
             "fir_active": "最小位相 FIR 畳み込み有効 ({taps} Taps)",
             "fir_inactive": "未適用 (IIR のみで許容範囲内)",
+            "fir_stop": "FIR 停止",
+            "fir_enable": "FIR 有効化",
             "preamp_label": "プリアンプゲイン (クリッピング防止)",
             "preamp_safe": "安全 (-(ピーク+0.2) dB)",
             "preamp_moderate": "中庸 (-ピーク/2 dB)",
@@ -222,6 +232,8 @@ public final class I18n: @unchecked Sendable {
             "menubar_stop": "CamillaDSP を停止",
             "menubar_quit": "EQ Cosplay を終了",
             "blackhole_warning": "BlackHole 2ch が検出されませんでした。システム全体のEQには仮想オーディオデバイスが必要です。",
+            "install_blackhole": "ドライバを導入",
+            "installing_blackhole": "導入処理中...",
             "camilla_not_found": "CamillaDSP の実行ファイルが見つかりません。"
         ]
     ]

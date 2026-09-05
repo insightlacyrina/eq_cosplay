@@ -2,35 +2,33 @@ import Foundation
 
 public enum PresetsManager {
     public static func getPresetsDirectory() -> URL {
+        let cwdPresets = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("presets", isDirectory: true)
+        if FileManager.default.fileExists(atPath: cwdPresets.path) && FileManager.default.isWritableFile(atPath: cwdPresets.path) {
+            return cwdPresets
+        }
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let dir = appSupport.appendingPathComponent("EQ Cosplay/presets", isDirectory: true)
-        do {
-            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-            let testFile = dir.appendingPathComponent(".wtest_\(UUID().uuidString)")
-            try "ok".write(to: testFile, atomically: true, encoding: .utf8)
-            try? FileManager.default.removeItem(at: testFile)
-            return dir
-        } catch {
-            let desktopPresets = URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/presets")
-            if (try? FileManager.default.createDirectory(at: desktopPresets, withIntermediateDirectories: true)) != nil {
-                let testFile = desktopPresets.appendingPathComponent(".wtest_\(UUID().uuidString)")
-                if (try? "ok".write(to: testFile, atomically: true, encoding: .utf8)) != nil {
-                    try? FileManager.default.removeItem(at: testFile)
-                    return desktopPresets
-                }
-            }
-            let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("EQCosplay/presets", isDirectory: true)
-            try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
-            return tmpDir
-        }
+        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+        return dir
     }
 
     public static func listPresets() -> [PresetInfo] {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupportPresets = appSupport.appendingPathComponent("EQ Cosplay/presets", isDirectory: true)
+        let cwdPresets = URL(fileURLWithPath: FileManager.default.currentDirectoryPath).appendingPathComponent("presets", isDirectory: true)
+        let parentPresets = Bundle.main.bundleURL.deletingLastPathComponent().appendingPathComponent("presets", isDirectory: true)
+
         var searchDirs = [
             getPresetsDirectory(),
-            URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay/presets"),
-            URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/presets")
+            appSupportPresets,
+            cwdPresets,
+            parentPresets
         ]
+
+        if let bundlePresets = Bundle.main.resourceURL?.appendingPathComponent("presets", isDirectory: true),
+           FileManager.default.fileExists(atPath: bundlePresets.path) {
+            searchDirs.append(bundlePresets)
+        }
 
         if let env = ProcessInfo.processInfo.environment["EQ_COSPLAY_PRESETS"] {
             searchDirs.insert(URL(fileURLWithPath: env), at: 0)
@@ -192,10 +190,101 @@ public enum PresetsManager {
             )
         }
 
+        // Dynamically fix companion WAV paths if they exist locally
+        let stem = presetURL.deletingPathExtension().lastPathComponent
+        let presetDir = presetURL.deletingLastPathComponent()
+        let localLeftWav = presetDir.appendingPathComponent("\(stem)_fir_left.wav")
+        let localRightWav = presetDir.appendingPathComponent("\(stem)_fir_right.wav")
+
+        if FileManager.default.fileExists(atPath: localLeftWav.path) {
+            if let firLeftPattern = try? NSRegularExpression(pattern: #"fir_left:\s*\n([ \t]+type:\s*Conv\s*\n[ \t]+parameters:\s*\n(?:[ \t]+[^\n]+\n)*?[ \t]+filename:\s*)(?:"[^"]*"|'[^']*'|[^\n]+)"#, options: []) {
+                let r = NSRange(finalText.startIndex..<finalText.endIndex, in: finalText)
+                finalText = firLeftPattern.stringByReplacingMatches(in: finalText, options: [], range: r, withTemplate: "$1\"\(localLeftWav.path)\"")
+            }
+        }
+        if FileManager.default.fileExists(atPath: localRightWav.path) {
+            if let firRightPattern = try? NSRegularExpression(pattern: #"fir_right:\s*\n([ \t]+type:\s*Conv\s*\n[ \t]+parameters:\s*\n(?:[ \t]+[^\n]+\n)*?[ \t]+filename:\s*)(?:"[^"]*"|'[^']*'|[^\n]+)"#, options: []) {
+                let r = NSRange(finalText.startIndex..<finalText.endIndex, in: finalText)
+                finalText = firRightPattern.stringByReplacingMatches(in: finalText, options: [], range: r, withTemplate: "$1\"\(localRightWav.path)\"")
+            }
+        }
+
         let dir = getPresetsDirectory()
         let activeLaunchURL = dir.appendingPathComponent("active_camilla_config.yml")
         try finalText.write(to: activeLaunchURL, atomically: true, encoding: .utf8)
         return activeLaunchURL
+    }
+
+    public struct PresetDetails: Sendable {
+        public let bands: [PEQBand]
+        public let firIr: [Double]?
+        public let metrics: [String: Double]
+        public let preampGain: Double
+        public let sampleRate: Int
+        public let hasFir: Bool
+
+        public init(
+            bands: [PEQBand],
+            firIr: [Double]?,
+            metrics: [String: Double],
+            preampGain: Double,
+            sampleRate: Int,
+            hasFir: Bool
+        ) {
+            self.bands = bands
+            self.firIr = firIr
+            self.metrics = metrics
+            self.preampGain = preampGain
+            self.sampleRate = sampleRate
+            self.hasFir = hasFir
+        }
+    }
+
+    public static func loadPresetDetails(from url: URL) -> PresetDetails? {
+        guard let content = try? String(contentsOf: url, encoding: .utf8) else { return nil }
+        let parsed = CamillaDSPConfig.parseYAML(content)
+
+        var firIr: [Double]? = nil
+        let stem = url.deletingPathExtension().lastPathComponent
+        let dir = url.deletingLastPathComponent()
+        let leftWav = dir.appendingPathComponent("\(stem)_fir_left.wav")
+
+        var targetWav = leftWav
+        if !FileManager.default.fileExists(atPath: targetWav.path), let p = parsed.firLeftPath {
+            let altUrl = URL(fileURLWithPath: p)
+            if FileManager.default.fileExists(atPath: altUrl.path) {
+                targetWav = altUrl
+            }
+        }
+
+        if FileManager.default.fileExists(atPath: targetWav.path) {
+            if let data = try? Data(contentsOf: targetWav) {
+                // Find "data" chunk
+                if let dataMarker = data.range(of: Data("data".utf8)) {
+                    let payloadStart = dataMarker.upperBound + 4
+                    if payloadStart < data.count {
+                        let payload = data.subdata(in: payloadStart..<data.count)
+                        var doubles: [Double] = []
+                        payload.withUnsafeBytes { raw in
+                            let floats = raw.bindMemory(to: Float.self)
+                            doubles = floats.map { Double($0) }
+                        }
+                        if !doubles.isEmpty {
+                            firIr = doubles
+                        }
+                    }
+                }
+            }
+        }
+
+        return PresetDetails(
+            bands: parsed.bands,
+            firIr: firIr,
+            metrics: parsed.metrics,
+            preampGain: parsed.preampGain,
+            sampleRate: parsed.sampleRate,
+            hasFir: parsed.useFir || (firIr != nil && !(firIr!.isEmpty))
+        )
     }
 
 }

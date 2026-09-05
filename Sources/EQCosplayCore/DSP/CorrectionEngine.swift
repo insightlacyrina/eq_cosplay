@@ -131,4 +131,57 @@ public enum CorrectionEngine {
             peqResponse: peqResp
         )
     }
+
+    public static func createResultFromPreset(
+        bands: [PEQBand],
+        firIr: [Double]?,
+        metrics: [String: Double],
+        fs: Double = 48000.0,
+        useFir: Bool = false
+    ) -> CorrectionResult {
+        let gridFreqs = LogGrid.makeLogFreqs(numPoints: 512)
+        let peqResp = Biquad.peqResponseDb(bands: bands, freqs: gridFreqs, fs: fs)
+
+        var combinedResp = peqResp
+        if useFir, let ir = firIr, !ir.isEmpty {
+            let firResp = FIRDesigner.firResponseDb(freqs: gridFreqs, ir: ir, fs: fs)
+            for i in 0..<512 {
+                combinedResp[i] = peqResp[i] + firResp[i]
+            }
+        }
+
+        var peak = -Double.infinity
+        var valley = Double.infinity
+        for v in combinedResp {
+            if v > peak { peak = v }
+            if v < valley { valley = v }
+        }
+        if peak.isInfinite { peak = 0.0 }
+        if valley.isInfinite { valley = 0.0 }
+
+        let peqRmse = metrics["peq_rmse"] ?? 0.0
+        let combinedRmse = metrics["combined_rmse"] ?? peqRmse
+        let responsePeak = metrics["response_peak"] ?? peak
+
+        return CorrectionResult(
+            peqBands: bands,
+            peqRmse: peqRmse,
+            peqRmseSmooth: peqRmse,
+            useFir: useFir && (firIr != nil && !(firIr!.isEmpty)),
+            firIr: firIr,
+            firTaps: firIr?.count ?? 0,
+            firRmse: 0.0,
+            combinedRmse: combinedRmse,
+            responsePeak: responsePeak,
+            responseValley: valley,
+            levelOffsetDb: 0.0,
+            needsFir: firIr != nil && !(firIr!.isEmpty),
+            criticalStats: [],
+            gridFreqs: gridFreqs,
+            sourceCurve: [Double](repeating: 0.0, count: 512),
+            targetCurve: combinedResp,
+            simulatedCurve: combinedResp,
+            peqResponse: peqResp
+        )
+    }
 }

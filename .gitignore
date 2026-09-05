@@ -1,5 +1,6 @@
 .build/
 .swiftpm/
 dist/
+camilladsp
 *.log
 .DS_Store

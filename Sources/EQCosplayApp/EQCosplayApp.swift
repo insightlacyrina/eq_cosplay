@@ -68,6 +68,12 @@ struct EQCosplaySwiftApp: App {
                 }
 
                 if appState.isEngineRunning {
+                    if appState.hasFIRData {
+                        Button(appState.isFIREnabled ? I18n.shared.t("fir_stop") : I18n.shared.t("fir_enable")) {
+                            appState.toggleFIR()
+                        }
+                    }
+
                     Button(I18n.shared.t("menubar_stop")) {
                         appState.stopCamillaDSP()
                     }

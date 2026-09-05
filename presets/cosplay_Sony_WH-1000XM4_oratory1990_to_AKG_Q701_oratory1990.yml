@@ -1,0 +1,137 @@
+# eq_cosplay_metrics: {"peq_rmse": 2.345, "combined_rmse": 0.678, "response_peak": 5.5, "level_offset_db": -1.2, "fir_n_taps": 8192, "use_fir": true}
+---
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "外置耳机"
+
+filters:
+  preamp_gain:
+    type: Gain
+    parameters:
+      gain: -6.0
+      inverted: false
+
+  fir_left:
+    type: Conv
+    parameters:
+      type: Wav
+      filename: "/Users/zhuyongfei/Desktop/eq_cosplay/presets/cosplay_Sony_WH-1000XM4_oratory1990_to_AKG_Q701_oratory1990_fir_left.wav"
+      channel: 0
+
+  fir_right:
+    type: Conv
+    parameters:
+      type: Wav
+      filename: "/Users/zhuyongfei/Desktop/eq_cosplay/presets/cosplay_Sony_WH-1000XM4_oratory1990_to_AKG_Q701_oratory1990_fir_right.wav"
+      channel: 0
+
+  peq_01:
+    type: Biquad
+    parameters:
+      type: Lowshelf
+      freq: 28.6
+      gain: -6.75
+      q: 0.77
+  peq_02:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 32.3
+      gain: -7.84
+      q: 0.35
+  peq_03:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 116.9
+      gain: -3.37
+      q: 1.05
+  peq_04:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 416.6
+      gain: 6.28
+      q: 1.15
+  peq_05:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 542.2
+      gain: -6.2
+      q: 1.03
+  peq_06:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 2285.2
+      gain: 10.0
+      q: 2.08
+  peq_07:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 4268.3
+      gain: -6.5
+      q: 2.13
+  peq_08:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 10760.7
+      gain: 5.28
+      q: 3.42
+  peq_09:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 14000.0
+      gain: -10.0
+      q: 0.63
+  peq_10:
+    type: Biquad
+    parameters:
+      type: Highshelf
+      freq: 4000.0
+      gain: 7.26
+      q: 0.6
+
+pipeline:
+  - type: Filter
+    channels: [0]
+    names:
+      - preamp_gain
+      - fir_left
+      - peq_01
+      - peq_02
+      - peq_03
+      - peq_04
+      - peq_05
+      - peq_06
+      - peq_07
+      - peq_08
+      - peq_09
+      - peq_10
+  - type: Filter
+    channels: [1]
+    names:
+      - preamp_gain
+      - fir_right
+      - peq_01
+      - peq_02
+      - peq_03
+      - peq_04
+      - peq_05
+      - peq_06
+      - peq_07
+      - peq_08
+      - peq_09
+      - peq_10

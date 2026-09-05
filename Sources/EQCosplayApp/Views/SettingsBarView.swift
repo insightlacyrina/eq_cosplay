@@ -117,6 +117,20 @@ public struct SettingsBarView: View {
 
                 // Action Buttons (High disabled contrast & Liquid Glass effect)
                 HStack(spacing: 10) {
+                    // Toggle FIR Button (Displayed only when FIR data is present, placed to the left of calculate button)
+                    if appState.hasFIRData {
+                        LiquidGlassButton(
+                            title: I18n.shared.t(appState.isFIREnabled ? "fir_stop" : "fir_enable"),
+                            icon: appState.isFIREnabled ? "waveform.badge.minus" : "waveform.badge.plus",
+                            isLoading: false,
+                            isProminent: false,
+                            isDisabled: appState.isCalculating,
+                            action: {
+                                appState.toggleFIR()
+                            }
+                        )
+                    }
+
                     // Compute / Optimize Button
                     LiquidGlassButton(
                         title: I18n.shared.t("calculate_button"),
@@ -155,17 +169,32 @@ public struct SettingsBarView: View {
                 }
             }
 
-            // BlackHole Warning (Liquid Glass)
+            // BlackHole Warning & Automated Installation (Liquid Glass)
             if !appState.isBlackHoleFound {
-                HStack(spacing: 8) {
-                    Image(systemName: "exclamationmark.triangle")
-                        .foregroundColor(.secondary)
+                HStack(spacing: 10) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 13))
+                        .foregroundColor(Color.orange.opacity(0.85))
+
                     Text(I18n.shared.t("blackhole_warning"))
                         .font(.system(size: 11))
                         .foregroundColor(.secondary)
+
                     Spacer()
+
+                    LiquidGlassButton(
+                        title: I18n.shared.t(appState.isInstallingBlackHole ? "installing_blackhole" : "install_blackhole"),
+                        icon: appState.isInstallingBlackHole ? nil : "arrow.down.circle",
+                        isLoading: appState.isInstallingBlackHole,
+                        isProminent: true,
+                        isDisabled: appState.isInstallingBlackHole,
+                        action: {
+                            appState.installBlackHole()
+                        }
+                    )
                 }
-                .padding(8)
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
                 .liquidGlass(cornerRadius: 8)
             }
         }

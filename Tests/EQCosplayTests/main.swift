@@ -244,6 +244,107 @@ filters:
     let launchedContent = try String(contentsOf: launchedURL, encoding: .utf8)
     assertTrue(launchedContent.contains("device: \"MacBook Pro扬声器\""), "Preset updated to target MacBook Pro扬声器")
 
+    // MARK: - Testing YAML Config Parsing & PresetsManager
+    print("\nTesting YAML Parsing, PresetsManager & FIR Toggle...")
+    let fullYaml = """
+# eq_cosplay_metrics: {"peq_rmse":0.82,"combined_rmse":0.19,"response_peak":-3.5}
+devices:
+  samplerate: 44100
+  chunksize: 1024
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "Built-in Output"
+
+filters:
+  preamp_gain:
+    type: Gain
+    parameters:
+      gain: -4.2
+  peq_01:
+    type: Biquad
+    parameters:
+      type: Peaking
+      freq: 120.0
+      q: 1.41
+      gain: 2.5
+  peq_02:
+    type: Biquad
+    parameters:
+      type: Lowshelf
+      freq: 80.0
+      q: 0.707
+      gain: -1.8
+  fir_corr:
+    type: Conv
+    parameters:
+      type: File
+      filename: "/tmp/sample_fir.wav"
+"""
+    let parsed = CamillaDSPConfig.parseYAML(fullYaml)
+    assertEqual(parsed.bands.count, 2, "Parsed 2 PEQ bands from YAML")
+    assertEqual(parsed.sampleRate, 44100, "Parsed sampleRate 44100")
+    assertAccuracy(parsed.preampGain, -4.2, accuracy: 0.01, "Parsed preamp gain")
+    assertEqual(parsed.firLeftPath, "/tmp/sample_fir.wav", "Parsed FIR filename")
+    assertEqual(parsed.metrics["peq_rmse"], 0.82, "Parsed embedded peq_rmse")
+    assertEqual(parsed.metrics["combined_rmse"], 0.19, "Parsed embedded combined_rmse")
+
+    // Test CorrectionEngine.createResultFromPreset FIR toggle behavior
+    let dummyBands = [PEQBand(type: .peaking, frequency: 1000.0, gain: 3.0, q: 1.0)]
+    let dummyIr = [Double](repeating: 0.01, count: 64)
+    let noFirResult = CorrectionEngine.createResultFromPreset(bands: dummyBands, firIr: dummyIr, metrics: [:], fs: 48000, useFir: false)
+    let withFirResult = CorrectionEngine.createResultFromPreset(bands: dummyBands, firIr: dummyIr, metrics: [:], fs: 48000, useFir: true)
+    assertTrue(noFirResult.simulatedCurve[256] != withFirResult.simulatedCurve[256], "FIR toggle changes simulated frequency response")
+    assertEqual(noFirResult.peqBands.count, 1, "Simulated result has 1 band")
+
+    // Test PresetsManager listPresets discovery
+    let presets = PresetsManager.listPresets()
+    assertTrue(!presets.isEmpty, "Found bundled/saved presets (count: \(presets.count))")
+
+    // Test Group 9: New Machine Deployment & Dependency Resolution
+    print("\nTesting New Machine Deployment & Dependency Helpers...")
+    let binDir = CamillaProcess.getBinDirectory()
+    assertTrue(FileManager.default.fileExists(atPath: binDir.path), "CamillaProcess bin directory exists")
+    let logsDir = CamillaProcess.getLogsDirectory()
+    assertTrue(FileManager.default.fileExists(atPath: logsDir.path), "CamillaProcess logs directory exists")
+
+    // Test dynamic WAV path resolution when preset contains foreign absolute paths
+    let foreignPresetContent = """
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "Speakers"
+filters:
+  fir_left:
+    type: Conv
+    parameters:
+      type: File
+      filename: "/Users/foreign_user/Desktop/old_path/test_portability_fir_left.wav"
+"""
+    let foreignDir = FileManager.default.temporaryDirectory.appendingPathComponent("test_foreign_preset_\(UUID().uuidString)")
+    try FileManager.default.createDirectory(at: foreignDir, withIntermediateDirectories: true)
+    let foreignYamlURL = foreignDir.appendingPathComponent("test_portability.yml")
+    let localWavURL = foreignDir.appendingPathComponent("test_portability_fir_left.wav")
+    try foreignPresetContent.write(to: foreignYamlURL, atomically: true, encoding: .utf8)
+    try "RIFFdummy".write(to: localWavURL, atomically: true, encoding: .utf8)
+
+    let preparedForeignURL = try PresetsManager.preparePresetForLaunch(presetURL: foreignYamlURL, outputDeviceName: "Target Headphones")
+    let preparedForeignContent = try String(contentsOf: preparedForeignURL, encoding: .utf8)
+    assertTrue(preparedForeignContent.contains("device: \"Target Headphones\""), "Target output device replaced")
+    assertTrue(preparedForeignContent.contains(localWavURL.path), "Foreign FIR WAV path dynamically updated to local path")
+    assertTrue(!preparedForeignContent.contains("foreign_user"), "Foreign path stripped cleanly")
+    try? FileManager.default.removeItem(at: foreignDir)
 }
 print("\n-------------------------------------------------------")
 if passedTests == totalTests {

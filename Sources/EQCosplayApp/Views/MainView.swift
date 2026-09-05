@@ -114,15 +114,14 @@ public struct MainView: View {
                 // Step 4: Bottom Row (Presets Library + Live Logs - Stable Anchor)
                 HStack(spacing: 12) {
                     PresetSidebarView(appState: appState)
-                        .frame(width: 280)
-                        .frame(height: 150)
+                        .frame(width: 280, height: 150, alignment: .topLeading)
+                        .zIndex(appState.activeExpandedPresetId != nil ? 200 : 10)
 
                     LogConsoleView(appState: appState)
                         .frame(minWidth: 400)
                         .frame(height: 150)
                 }
             }
-            .id(appState.currentLanguage)
             .padding(.horizontal, 14)
             .padding(.bottom, 14)
         }
@@ -130,9 +129,10 @@ public struct MainView: View {
         .ignoresSafeArea(.all, edges: .top)
         .contentShape(Rectangle())
         .onTapGesture {
-            if appState.activeDropdownId != nil {
+            if appState.activeDropdownId != nil || appState.activeExpandedPresetId != nil {
                 withAnimation(.spring(response: 0.28, dampingFraction: 0.78)) {
                     appState.activeDropdownId = nil
+                    appState.activeExpandedPresetId = nil
                 }
             }
         }
