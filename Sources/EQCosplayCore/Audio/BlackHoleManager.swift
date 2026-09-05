@@ -1,15 +1,20 @@
 import Foundation
+import CoreAudio
 
 public enum BlackHoleManager {
     public static func isBlackHoleInstalled() -> Bool {
-        let devices = CoreAudioService.getAudioOutputDevices()
+        let devices = CoreAudioService.getAllAudioDevices()
         return devices.contains { $0.name.lowercased().contains("blackhole") }
     }
 
     public static func getBlackHoleDevice() -> AudioDevice? {
-        let devices = CoreAudioService.getAudioOutputDevices()
+        let devices = CoreAudioService.getAllAudioDevices()
         return devices.first { $0.name.lowercased().contains("blackhole 2ch") }
             ?? devices.first { $0.name.lowercased().contains("blackhole") }
+    }
+
+    public static func getBlackHoleDeviceID() -> AudioObjectID? {
+        getBlackHoleDevice()?.id
     }
 
     public static let installInstructions = """

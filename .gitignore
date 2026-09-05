@@ -1,13 +1,5 @@
 .build/
 .swiftpm/
 dist/
-build/
-__pycache__/
 *.log
-logs/
 .DS_Store
-camilladsp
-.venv/
-packaging/
-*.png
-!assets/icons/*.png

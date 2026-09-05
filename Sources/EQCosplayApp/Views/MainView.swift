@@ -77,7 +77,7 @@ public struct MainView: View {
                     .frame(maxHeight: .infinity)
 
                 PEQTableView(appState: appState)
-                    .frame(width: 320)
+                    .frame(width: 385)
                     .frame(maxHeight: .infinity)
             }
             .frame(minHeight: 220, maxHeight: .infinity)

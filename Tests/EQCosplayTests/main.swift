@@ -135,7 +135,7 @@ do {
 
     let attr = try FileManager.default.attributesOfItem(atPath: tempUrl.path)
     let fileSize = (attr[.size] as? NSNumber)?.intValue ?? 0
-    assertEqual(fileSize, 44 + 1024 * 4, "WAV file size matches exact 44-byte RIFF header + float payload")
+    assertEqual(fileSize, 58 + 1024 * 4, "WAV file size matches exact 58-byte standard RIFF header + float payload")
     try? FileManager.default.removeItem(at: tempUrl)
 }
 
@@ -199,6 +199,29 @@ do {
     assertTrue(fetchSuccess, "Downloaded CSV for Sony WH-1000XM4 with fallback (used \(usedProvider), \(returnedFreqs) points)")
 }
 
+
+// Test Group 7: CoreAudio Physical Device Filtering & WavWriter Format
+print("\nTesting CoreAudio Filtering & WavWriter Compliance...")
+do {
+    assertTrue(CoreAudioService.isVirtualDevice(name: "BlackHole 2ch"), "BlackHole identified as virtual")
+    assertTrue(CoreAudioService.isVirtualDevice(name: "Background Music"), "Background Music identified as virtual")
+    assertTrue(!CoreAudioService.isVirtualDevice(name: "External Headphones"), "External Headphones identified as physical")
+    assertTrue(!CoreAudioService.isVirtualDevice(name: "外置耳机"), "外置耳机 identified as physical")
+    assertTrue(!CoreAudioService.isVirtualDevice(name: "MacBook Pro扬声器"), "MacBook Pro扬声器 identified as physical")
+
+    let physical = CoreAudioService.getAudioOutputDevices()
+    for dev in physical {
+        assertTrue(!CoreAudioService.isVirtualDevice(name: dev.name), "Output device \(dev.name) is physical")
+    }
+
+    // WavWriter test
+    let testUrl = URL(fileURLWithPath: "/tmp/test_riff.wav")
+    let samples: [Float] = [0.1, -0.2, 0.3, -0.4]
+    try WavWriter.writeFloat32Wav(url: testUrl, samples: samples, sampleRate: 48000)
+    let data = try Data(contentsOf: testUrl)
+    // 58 bytes header + 16 bytes payload = 74 bytes total
+    assertEqual(data.count, 74, "Wav file has correct IEEE Float header + payload size")
+}
 print("\n-------------------------------------------------------")
 if passedTests == totalTests {
     print("\u{001B}[32mAll \(totalTests) tests passed successfully!\u{001B}[0m")

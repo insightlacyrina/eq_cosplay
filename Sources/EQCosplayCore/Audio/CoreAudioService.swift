@@ -2,7 +2,38 @@ import Foundation
 import CoreAudio
 
 public enum CoreAudioService {
+    public static let virtualDeviceKeywords = [
+        "blackhole",
+        "background music",
+        "loopback",
+        "virtual",
+        "multi-output",
+        "多输出设备"
+    ]
+
+    public static func isVirtualDevice(name: String) -> Bool {
+        let low = name.lowercased()
+        return virtualDeviceKeywords.contains { low.contains($0) }
+    }
+
+    /// Returns ONLY physical playback devices (headphones, speakers, USB DACs),
+    /// strictly excluding virtual devices like BlackHole or Background Music.
     public static func getAudioOutputDevices() -> [AudioDevice] {
+        let all = getAllAudioDevices()
+        let defaultOutputID = getDefaultOutputDeviceID()
+
+        var physicalDevices: [AudioDevice] = []
+        for dev in all {
+            if !isVirtualDevice(name: dev.name) {
+                let isDefault = (dev.id == defaultOutputID)
+                physicalDevices.append(AudioDevice(id: dev.id, name: dev.name, uid: dev.uid, isDefault: isDefault))
+            }
+        }
+        return physicalDevices
+    }
+
+    /// Returns all output devices, including virtual ones.
+    public static func getAllAudioDevices() -> [AudioDevice] {
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDevices,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -38,7 +69,6 @@ public enum CoreAudioService {
         var devices: [AudioDevice] = []
 
         for id in deviceIDs {
-            // Check if device has output streams
             if hasOutputStreams(deviceID: id) {
                 let name = getDeviceName(deviceID: id)
                 let uid = getDeviceUID(deviceID: id)
@@ -72,6 +102,38 @@ public enum CoreAudioService {
         return (status == noErr) ? deviceID : 0
     }
 
+    @discardableResult
+    public static func setDefaultOutputDeviceID(_ id: AudioObjectID) -> Bool {
+        var propertyAddress = AudioObjectPropertyAddress(
+            mSelector: kAudioHardwarePropertyDefaultOutputDevice,
+            mScope: kAudioObjectPropertyScopeGlobal,
+            mElement: kAudioObjectPropertyElementMain
+        )
+
+        var deviceID = id
+        let dataSize = UInt32(MemoryLayout<AudioObjectID>.size)
+
+        let status = AudioObjectSetPropertyData(
+            AudioObjectID(kAudioObjectSystemObject),
+            &propertyAddress,
+            0,
+            nil,
+            dataSize,
+            &deviceID
+        )
+
+        return status == noErr
+    }
+
+    public static func getDeviceID(named target: String) -> AudioObjectID? {
+        let all = getAllAudioDevices()
+        let lowTarget = target.lowercased()
+        if let exact = all.first(where: { $0.name.lowercased() == lowTarget }) {
+            return exact.id
+        }
+        return all.first(where: { $0.name.lowercased().contains(lowTarget) })?.id
+    }
+
     private static func hasOutputStreams(deviceID: AudioObjectID) -> Bool {
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyStreams,
@@ -91,7 +153,7 @@ public enum CoreAudioService {
         return (status == noErr && dataSize > 0)
     }
 
-    private static func getDeviceName(deviceID: AudioObjectID) -> String {
+    public static func getDeviceName(deviceID: AudioObjectID) -> String {
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyDeviceNameCFString,
             mScope: kAudioObjectPropertyScopeGlobal,
@@ -116,7 +178,7 @@ public enum CoreAudioService {
         return "Audio Device \(deviceID)"
     }
 
-    private static func getDeviceUID(deviceID: AudioObjectID) -> String {
+    public static func getDeviceUID(deviceID: AudioObjectID) -> String {
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioDevicePropertyDeviceUID,
             mScope: kAudioObjectPropertyScopeGlobal,

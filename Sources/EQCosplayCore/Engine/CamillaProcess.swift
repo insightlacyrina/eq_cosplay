@@ -5,6 +5,7 @@ public final class CamillaProcess: @unchecked Sendable {
 
     private var currentProcess: Process?
     private var logFileHandle: FileHandle?
+    private var tailTask: Task<Void, Never>?
     public private(set) var activeConfigPath: URL?
     public var onLogMessage: ((String) -> Void)?
 
@@ -24,6 +25,7 @@ public final class CamillaProcess: @unchecked Sendable {
         // 2. Candidate paths
         let home = FileManager.default.homeDirectoryForCurrentUser
         let candidates = [
+            URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/dist/EQ Cosplay.app/Contents/Resources/camilladsp"),
             URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay/camilladsp"),
             URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/camilladsp"),
             URL(fileURLWithPath: "/opt/homebrew/bin/camilladsp"),
@@ -88,8 +90,8 @@ public final class CamillaProcess: @unchecked Sendable {
         let logFile = logsDir.appendingPathComponent("camilladsp_\(dateStr).log")
 
         FileManager.default.createFile(atPath: logFile.path, contents: nil)
-        let fileHandle = try FileHandle(forWritingTo: logFile)
-        self.logFileHandle = fileHandle
+        let writeHandle = try FileHandle(forWritingTo: logFile)
+        self.logFileHandle = writeHandle
 
         let header = """
         # EQ Cosplay / CamillaDSP log
@@ -98,7 +100,7 @@ public final class CamillaProcess: @unchecked Sendable {
         # ---\n
         """
         if let headerData = header.data(using: .utf8) {
-            fileHandle.write(headerData)
+            writeHandle.write(headerData)
         }
 
         let process = Process()
@@ -108,27 +110,21 @@ public final class CamillaProcess: @unchecked Sendable {
             configPath.path
         ]
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = pipe
-
-        pipe.fileHandleForReading.readabilityHandler = { [weak self] handle in
-            let data = handle.availableData
-            guard !data.isEmpty else { return }
-            self?.logFileHandle?.write(data)
-            if let text = String(data: data, encoding: .utf8) {
-                DispatchQueue.main.async {
-                    self?.onLogMessage?(text)
-                }
-            }
-        }
+        // Direct file redirection to eliminate 16KB pipe buffer deadlocks completely
+        process.standardOutput = writeHandle
+        process.standardError = writeHandle
 
         try process.run()
         self.currentProcess = process
         self.activeConfigPath = configPath
+
+        startLogTail(logUrl: logFile)
     }
 
     public func stop() {
+        tailTask?.cancel()
+        tailTask = nil
+
         if let p = currentProcess, p.isRunning {
             p.terminate()
             p.waitUntilExit()
@@ -138,5 +134,28 @@ public final class CamillaProcess: @unchecked Sendable {
         try? logFileHandle?.close()
         logFileHandle = nil
         Self.stopExistingInstances()
+    }
+
+    private func startLogTail(logUrl: URL) {
+        tailTask?.cancel()
+        tailTask = Task.detached { [weak self] in
+            guard let readHandle = try? FileHandle(forReadingFrom: logUrl) else { return }
+            defer { try? readHandle.close() }
+
+            var offset: UInt64 = 0
+            while !Task.isCancelled {
+                try? await Task.sleep(nanoseconds: 200_000_000) // 200ms
+                guard let curLen = try? readHandle.seekToEnd(), curLen > offset else { continue }
+                try? readHandle.seek(toOffset: offset)
+                let data = readHandle.readDataToEndOfFile()
+                offset += UInt64(data.count)
+
+                if let text = String(data: data, encoding: .utf8), !text.isEmpty {
+                    DispatchQueue.main.async {
+                        self?.onLogMessage?(text)
+                    }
+                }
+            }
+        }
     }
 }

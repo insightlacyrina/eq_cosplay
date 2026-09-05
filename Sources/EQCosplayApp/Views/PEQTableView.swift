@@ -10,8 +10,8 @@ public struct PEQTableView: View {
 
     public var body: some View {
         VStack(alignment: .leading, spacing: 10) {
-            // Header with metrics
-            HStack {
+            // Header with metrics (no boxes, 3 leading-aligned horizontal rows)
+            HStack(alignment: .top) {
                 Text(I18n.shared.t("peq_table_title"))
                     .font(.system(size: 13, weight: .medium))
                     .foregroundColor(.primary)
@@ -19,20 +19,32 @@ public struct PEQTableView: View {
                 Spacer()
 
                 if let res = appState.correctionResult {
-                    HStack(spacing: 6) {
-                        metricPill(
-                            label: "IIR RMSE",
-                            value: String(format: "%.2f dB", res.peqRmse)
-                        )
-                        if res.useFir {
-                            metricPill(
-                                label: "FIR RMSE",
-                                value: String(format: "%.2f dB", res.combinedRmse)
-                            )
-                            metricPill(
-                                label: "FIR",
-                                value: "\(res.firTaps) Taps"
-                            )
+                    VStack(alignment: .leading, spacing: 2) {
+                        HStack(spacing: 5) {
+                            Text("IIR RMSE:")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                            Text(String(format: "%.2f dB", res.peqRmse))
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundColor(.primary)
+                        }
+
+                        HStack(spacing: 5) {
+                            Text("FIR RMSE:")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                            Text(res.useFir ? String(format: "%.2f dB", res.combinedRmse) : "—")
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundColor(.primary)
+                        }
+
+                        HStack(spacing: 5) {
+                            Text("FIR Taps:")
+                                .font(.system(size: 10))
+                                .foregroundColor(.secondary)
+                            Text(res.useFir ? "\(res.firTaps)" : "—")
+                                .font(.system(size: 10, weight: .medium, design: .monospaced))
+                                .foregroundColor(.primary)
                         }
                     }
                 }
@@ -40,12 +52,12 @@ public struct PEQTableView: View {
 
             // Table Box (Fills maxHeight to strictly match FrequencyResponsePlotView)
             VStack(spacing: 0) {
-                // Table Header
+                // Table Header (All units removed)
                 HStack {
                     Text(I18n.shared.t("col_index"))
-                        .frame(width: 32, alignment: .leading)
+                        .frame(width: 28, alignment: .leading)
                     Text(I18n.shared.t("col_type"))
-                        .frame(width: 90, alignment: .leading)
+                        .frame(width: 82, alignment: .leading)
                     Text(I18n.shared.t("col_freq"))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     Text(I18n.shared.t("col_gain"))
@@ -70,17 +82,17 @@ public struct PEQTableView: View {
                                     Text(String(format: "%02d", index + 1))
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(.secondary)
-                                        .frame(width: 32, alignment: .leading)
+                                        .frame(width: 28, alignment: .leading)
 
                                     typeBadge(band.type)
-                                        .frame(width: 90, alignment: .leading)
+                                        .frame(width: 82, alignment: .leading)
 
-                                    Text(String(format: "%.1f Hz", band.frequency))
+                                    Text(band.frequency >= 100 ? String(format: "%.0f", band.frequency) : String(format: "%.1f", band.frequency))
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(.primary)
                                         .frame(maxWidth: .infinity, alignment: .trailing)
 
-                                    Text(String(format: "%+.2f dB", band.gain))
+                                    Text(String(format: "%+.2f", band.gain))
                                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                                         .foregroundColor(.primary)
                                         .frame(maxWidth: .infinity, alignment: .trailing)
@@ -123,25 +135,6 @@ public struct PEQTableView: View {
         .padding(12)
         .frame(maxHeight: .infinity)
         .liquidGlass(cornerRadius: 10)
-    }
-
-    private func metricPill(label: String, value: String) -> some View {
-        HStack(spacing: 4) {
-            Text(label)
-                .font(.system(size: 10))
-                .foregroundColor(.secondary)
-            Text(value)
-                .font(.system(size: 10, weight: .medium, design: .monospaced))
-                .foregroundColor(.primary)
-        }
-        .padding(.horizontal, 6)
-        .padding(.vertical, 2)
-        .background(.ultraThinMaterial)
-        .cornerRadius(4)
-        .overlay(
-            RoundedRectangle(cornerRadius: 4)
-                .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
-        )
     }
 
     private func typeBadge(_ type: FilterType) -> some View {
