@@ -22,9 +22,9 @@ struct EQCosplaySwiftApp: App {
         Window("EQ Cosplay", id: "main_window") {
             MainView(appState: appState)
                 .frame(minWidth: 940, minHeight: 680)
+                .ignoresSafeArea(.all, edges: .top)
         }
-        .windowStyle(.titleBar)
-        .windowToolbarStyle(.unifiedCompact)
+        .windowStyle(.hiddenTitleBar)
 
         MenuBarExtra {
             VStack {

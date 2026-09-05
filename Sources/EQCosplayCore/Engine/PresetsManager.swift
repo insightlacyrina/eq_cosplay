@@ -4,8 +4,25 @@ public enum PresetsManager {
     public static func getPresetsDirectory() -> URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         let dir = appSupport.appendingPathComponent("EQ Cosplay/presets", isDirectory: true)
-        try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
-        return dir
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let testFile = dir.appendingPathComponent(".wtest_\(UUID().uuidString)")
+            try "ok".write(to: testFile, atomically: true, encoding: .utf8)
+            try? FileManager.default.removeItem(at: testFile)
+            return dir
+        } catch {
+            let desktopPresets = URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/presets")
+            if (try? FileManager.default.createDirectory(at: desktopPresets, withIntermediateDirectories: true)) != nil {
+                let testFile = desktopPresets.appendingPathComponent(".wtest_\(UUID().uuidString)")
+                if (try? "ok".write(to: testFile, atomically: true, encoding: .utf8)) != nil {
+                    try? FileManager.default.removeItem(at: testFile)
+                    return desktopPresets
+                }
+            }
+            let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("EQCosplay/presets", isDirectory: true)
+            try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+            return tmpDir
+        }
     }
 
     public static func listPresets() -> [PresetInfo] {
@@ -167,9 +184,17 @@ public enum PresetsManager {
             withTemplate: "$1\"\(outputDeviceName)\""
         )
 
+        var finalText = updatedText
+        if !finalText.contains("enable_rate_adjust:") {
+            finalText = finalText.replacingOccurrences(
+                of: "devices:\n",
+                with: "devices:\n  enable_rate_adjust: true\n  resampler:\n    type: Synchronous\n"
+            )
+        }
+
         let dir = getPresetsDirectory()
         let activeLaunchURL = dir.appendingPathComponent("active_camilla_config.yml")
-        try updatedText.write(to: activeLaunchURL, atomically: true, encoding: .utf8)
+        try finalText.write(to: activeLaunchURL, atomically: true, encoding: .utf8)
         return activeLaunchURL
     }
 

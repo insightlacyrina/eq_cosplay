@@ -14,7 +14,14 @@ public struct PresetSidebarView: View {
             content
         }
         .padding(10)
-        .background(.ultraThinMaterial)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.black.opacity(0.3))
+            }
+        )
         .cornerRadius(10)
         .overlay(
             RoundedRectangle(cornerRadius: 10)

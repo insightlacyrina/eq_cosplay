@@ -1,6 +1,40 @@
 import SwiftUI
 import EQCosplayCore
 
+// MARK: - Native macOS Window Drag Support
+public struct WindowDragArea: NSViewRepresentable {
+    public final class DragView: NSView {
+        public override var mouseDownCanMoveWindow: Bool { true }
+
+        public override func mouseUp(with event: NSEvent) {
+            if event.clickCount == 2 {
+                window?.zoom(nil)
+            } else {
+                super.mouseUp(with: event)
+            }
+        }
+    }
+
+    public init() {}
+
+    public func makeNSView(context: Context) -> DragView {
+        return DragView()
+    }
+
+    public func updateNSView(_ nsView: DragView, context: Context) {}
+}
+
+extension View {
+    @ViewBuilder
+    public func enableWindowDrag() -> some View {
+        if #available(macOS 15.0, *) {
+            self.gesture(WindowDragGesture())
+        } else {
+            self
+        }
+    }
+}
+
 public struct MainView: View {
     @ObservedObject var appState: AppState
     @State private var currentLang: Language = I18n.shared.currentLanguage
@@ -10,23 +44,9 @@ public struct MainView: View {
     }
 
     public var body: some View {
-        VStack(spacing: 12) {
-            // Header Bar
+        VStack(spacing: 8) {
+            // Header Bar / Custom Top Bar (Unified with macOS Window Traffic Light Controls)
             HStack(spacing: 12) {
-                // Application Icon Alone
-                if let icon = NSImage(contentsOfFile: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/assets/icons/app.png") ?? NSImage(named: NSImage.applicationIconName) {
-                    Image(nsImage: icon)
-                        .resizable()
-                        .aspectRatio(contentMode: .fit)
-                        .frame(width: 28, height: 28)
-                        .cornerRadius(6)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 6)
-                                .stroke(Color.white.opacity(0.18), lineWidth: 0.5)
-                        )
-                        .shadow(color: .black.opacity(0.20), radius: 4, x: 0, y: 1)
-                }
-
                 Spacer()
 
                 // Status indicator matched to selected language
@@ -59,42 +79,56 @@ public struct MainView: View {
                     width: 105
                 )
             }
-            .padding(.horizontal, 4)
+            .padding(.leading, 80) // Reserved margin for traffic lights (close, minimize, zoom)
+            .padding(.trailing, 14)
+            .padding(.top, 10)
+            .padding(.bottom, 2)
+            .frame(height: 44)
+            .background(
+                WindowDragArea()
+                    .enableWindowDrag()
+            )
+            .enableWindowDrag()
             .zIndex(100)
 
-            // Step 1: Headphone Selection (Morphing Liquid Glass with Floating Layer)
-            HeadphonePickerView(appState: appState)
-                .zIndex(90)
+            // Main Content Area
+            VStack(spacing: 12) {
+                // Step 1: Headphone Selection (Morphing Liquid Glass with Floating Layer)
+                HeadphonePickerView(appState: appState)
+                    .zIndex(90)
 
-            // Step 2: Settings & Actions (Morphing Liquid Glass with Floating Layer)
-            SettingsBarView(appState: appState)
-                .zIndex(80)
+                // Step 2: Settings & Actions (Morphing Liquid Glass with Floating Layer)
+                SettingsBarView(appState: appState)
+                    .zIndex(80)
 
-            // Step 3: Main Display (Frequency Plot + PEQ Table - Dynamically Resizes With Window)
-            HStack(alignment: .top, spacing: 12) {
-                FrequencyResponsePlotView(appState: appState)
-                    .frame(minWidth: 540)
-                    .frame(maxHeight: .infinity)
+                // Step 3: Main Display (Frequency Plot + PEQ Table - Dynamically Resizes With Window)
+                HStack(alignment: .top, spacing: 12) {
+                    FrequencyResponsePlotView(appState: appState)
+                        .frame(minWidth: 540)
+                        .frame(maxHeight: .infinity)
 
-                PEQTableView(appState: appState)
-                    .frame(width: 385)
-                    .frame(maxHeight: .infinity)
+                    PEQTableView(appState: appState)
+                        .frame(width: 385)
+                        .frame(maxHeight: .infinity)
+                }
+                .frame(minHeight: 220, maxHeight: .infinity)
+
+                // Step 4: Bottom Row (Presets Library + Live Logs - Stable Anchor)
+                HStack(spacing: 12) {
+                    PresetSidebarView(appState: appState)
+                        .frame(width: 280)
+                        .frame(height: 150)
+
+                    LogConsoleView(appState: appState)
+                        .frame(minWidth: 400)
+                        .frame(height: 150)
+                }
             }
-            .frame(minHeight: 220, maxHeight: .infinity)
-
-            // Step 4: Bottom Row (Presets Library + Live Logs - Stable Anchor)
-            HStack(spacing: 12) {
-                PresetSidebarView(appState: appState)
-                    .frame(width: 280)
-                    .frame(height: 150)
-
-                LogConsoleView(appState: appState)
-                    .frame(minWidth: 400)
-                    .frame(height: 150)
-            }
+            .padding(.horizontal, 14)
+            .padding(.bottom, 14)
         }
-        .padding(14)
         .background(Color.black)
+        .ignoresSafeArea(.all, edges: .top)
         .contentShape(Rectangle())
         .onTapGesture {
             if appState.activeDropdownId != nil {

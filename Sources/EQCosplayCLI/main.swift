@@ -34,9 +34,11 @@ struct EQCosplayCLI {
             if let input = readLine()?.trimmingCharacters(in: .whitespacesAndNewlines),
                let num = Int(input), num > 0 && num <= min(savedPresets.count, 8) {
                 let selected = savedPresets[num - 1]
-                print("[..] Deploying preset: \(selected.name)...")
+                let outName = defaultDevice?.name ?? "Headphones"
+                print("[..] Deploying preset: \(selected.name) to output: \(outName)...")
                 do {
-                    try CamillaProcess.shared.start(configPath: selected.path)
+                    let activeURL = try PresetsManager.preparePresetForLaunch(presetURL: selected.path, outputDeviceName: outName)
+                    try CamillaProcess.shared.start(configPath: activeURL)
                     print("[OK] CamillaDSP running. Press Enter to stop.")
                     _ = readLine()
                     CamillaProcess.shared.stop()

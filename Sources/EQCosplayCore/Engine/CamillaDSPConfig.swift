@@ -26,6 +26,9 @@ public enum CamillaDSPConfig {
         devices:
           samplerate: \(sampleRate)
           chunksize: 1024
+          enable_rate_adjust: true
+          resampler:
+            type: Synchronous
           capture:
             type: CoreAudio
             channels: 2
@@ -34,6 +37,7 @@ public enum CamillaDSPConfig {
             type: CoreAudio
             channels: 2
             device: "\(outputDeviceName)"
+
 
         filters:
 

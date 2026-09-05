@@ -83,22 +83,39 @@ cat << 'PLIST' > "$CONTENTS/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.0.0</string>
+    <string>1.1.6</string>
     <key>CFBundleVersion</key>
-    <string>1</string>
+    <string>1.1.6</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
     <true/>
     <key>NSSupportsAutomaticGraphicsSwitching</key>
     <true/>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>EQ Cosplay 需要音频捕获权限以接收 BlackHole 虚拟音频流并进行实时均衡校正输出。</string>
 </dict>
 </plist>
 PLIST
 
-# Ad-hoc code sign
-echo "==> Code signing..."
-codesign --force --deep -s - "$APP_BUNDLE"
+# Write Entitlements
+cat << 'ENT' > "$CONTENTS/Entitlements.plist"
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>com.apple.security.device.audio-input</key>
+    <true/>
+    <key>com.apple.security.get-task-allow</key>
+    <true/>
+</dict>
+</plist>
+ENT
+
+# Ad-hoc code sign with audio input entitlements
+echo "==> Code signing with audio-input entitlements..."
+codesign --force --deep --entitlements "$CONTENTS/Entitlements.plist" -s - "$APP_BUNDLE"
+xattr -dr com.apple.quarantine "$APP_BUNDLE" 2>/dev/null || true
 
 echo ""
 echo "======================================================="

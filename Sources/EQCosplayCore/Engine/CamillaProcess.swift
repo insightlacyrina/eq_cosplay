@@ -8,6 +8,7 @@ public final class CamillaProcess: @unchecked Sendable {
     private var tailTask: Task<Void, Never>?
     public private(set) var activeConfigPath: URL?
     public var onLogMessage: ((String) -> Void)?
+    public var onProcessTerminated: ((Int32) -> Void)?
 
     public var isRunning: Bool {
         guard let p = currentProcess else { return false }
@@ -16,10 +17,34 @@ public final class CamillaProcess: @unchecked Sendable {
 
     private init() {}
 
+    public static func getLogsDirectory() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let dir = appSupport.appendingPathComponent("EQ Cosplay/logs", isDirectory: true)
+        do {
+            try FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
+            let testFile = dir.appendingPathComponent(".wtest_\(UUID().uuidString)")
+            try "ok".write(to: testFile, atomically: true, encoding: .utf8)
+            try? FileManager.default.removeItem(at: testFile)
+            return dir
+        } catch {
+            let desktopLogs = URL(fileURLWithPath: "/Users/zhuyongfei/Desktop/eq_cosplay_swift/logs")
+            if (try? FileManager.default.createDirectory(at: desktopLogs, withIntermediateDirectories: true)) != nil {
+                return desktopLogs
+            }
+            let tmpDir = URL(fileURLWithPath: NSTemporaryDirectory()).appendingPathComponent("EQCosplay/logs", isDirectory: true)
+            try? FileManager.default.createDirectory(at: tmpDir, withIntermediateDirectories: true)
+            return tmpDir
+        }
+    }
+
     public static func findExecutable() -> URL? {
         // 1. Check App bundle
         if let bundleUrl = Bundle.main.url(forResource: "camilladsp", withExtension: nil) {
             return bundleUrl
+        }
+        if let resourceDir = Bundle.main.resourceURL?.appendingPathComponent("camilladsp"),
+           FileManager.default.isExecutableFile(atPath: resourceDir.path) {
+            return resourceDir
         }
 
         // 2. Candidate paths
@@ -61,11 +86,19 @@ public final class CamillaProcess: @unchecked Sendable {
     }
 
     public static func stopExistingInstances() {
-        let pkill = Process()
-        pkill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
-        pkill.arguments = ["-9", "-x", "camilladsp"]
-        try? pkill.run()
-        pkill.waitUntilExit()
+        let pkillTerm = Process()
+        pkillTerm.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        pkillTerm.arguments = ["-15", "-x", "camilladsp"]
+        try? pkillTerm.run()
+        pkillTerm.waitUntilExit()
+
+        Thread.sleep(forTimeInterval: 0.1)
+
+        let pkillKill = Process()
+        pkillKill.executableURL = URL(fileURLWithPath: "/usr/bin/pkill")
+        pkillKill.arguments = ["-9", "-x", "camilladsp"]
+        try? pkillKill.run()
+        pkillKill.waitUntilExit()
     }
 
     public func start(configPath: URL, debug: Bool = false) throws {
@@ -80,10 +113,7 @@ public final class CamillaProcess: @unchecked Sendable {
             )
         }
 
-        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        let logsDir = appSupport.appendingPathComponent("EQ Cosplay/logs", isDirectory: true)
-        try? FileManager.default.createDirectory(at: logsDir, withIntermediateDirectories: true)
-
+        let logsDir = Self.getLogsDirectory()
         let formatter = DateFormatter()
         formatter.dateFormat = "yyyyMMdd_HHmmss"
         let dateStr = formatter.string(from: Date())
@@ -110,6 +140,13 @@ public final class CamillaProcess: @unchecked Sendable {
             configPath.path
         ]
 
+        process.terminationHandler = { [weak self] proc in
+            let code = proc.terminationStatus
+            DispatchQueue.main.async {
+                self?.onProcessTerminated?(code)
+            }
+        }
+
         // Direct file redirection to eliminate 16KB pipe buffer deadlocks completely
         process.standardOutput = writeHandle
         process.standardError = writeHandle
@@ -119,6 +156,20 @@ public final class CamillaProcess: @unchecked Sendable {
         self.activeConfigPath = configPath
 
         startLogTail(logUrl: logFile)
+
+        // Health check: verify process did not crash/exit immediately
+        Thread.sleep(forTimeInterval: 0.35)
+        if !process.isRunning {
+            let exitCode = process.terminationStatus
+            let logSnippet = (try? String(contentsOf: logFile, encoding: .utf8)) ?? ""
+            let lastLines = logSnippet.components(separatedBy: .newlines).suffix(12).joined(separator: "\n")
+            self.stop()
+            throw NSError(
+                domain: "CamillaProcess",
+                code: Int(exitCode),
+                userInfo: [NSLocalizedDescriptionKey: "CamillaDSP 启动后立即退出 (退出码: \(exitCode))。\n\(lastLines)"]
+            )
+        }
     }
 
     public func stop() {
@@ -126,6 +177,7 @@ public final class CamillaProcess: @unchecked Sendable {
         tailTask = nil
 
         if let p = currentProcess, p.isRunning {
+            p.terminationHandler = nil
             p.terminate()
             p.waitUntilExit()
         }

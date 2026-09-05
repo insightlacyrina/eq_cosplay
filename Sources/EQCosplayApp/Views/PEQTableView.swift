@@ -52,24 +52,25 @@ public struct PEQTableView: View {
 
             // Table Box (Fills maxHeight to strictly match FrequencyResponsePlotView)
             VStack(spacing: 0) {
-                // Table Header (All units removed)
-                HStack {
+                // Table Header with Units in Parentheses
+                HStack(spacing: 6) {
                     Text(I18n.shared.t("col_index"))
-                        .frame(width: 28, alignment: .leading)
+                        .frame(width: 26, alignment: .leading)
                     Text(I18n.shared.t("col_type"))
-                        .frame(width: 82, alignment: .leading)
+                        .frame(width: 62, alignment: .leading)
                     Text(I18n.shared.t("col_freq"))
                         .frame(maxWidth: .infinity, alignment: .trailing)
                     Text(I18n.shared.t("col_gain"))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(width: 64, alignment: .trailing)
                     Text(I18n.shared.t("col_q"))
-                        .frame(maxWidth: .infinity, alignment: .trailing)
+                        .frame(width: 54, alignment: .trailing)
                 }
                 .font(.system(size: 11, weight: .medium))
                 .foregroundColor(.secondary)
+                .lineLimit(1)
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
-                .background(.ultraThinMaterial)
+                .background(Color.black.opacity(0.25))
 
                 Divider().background(Color.white.opacity(0.08))
 
@@ -78,14 +79,14 @@ public struct PEQTableView: View {
                     ScrollView {
                         VStack(spacing: 0) {
                             ForEach(Array(bands.enumerated()), id: \.offset) { index, band in
-                                HStack {
+                                HStack(spacing: 6) {
                                     Text(String(format: "%02d", index + 1))
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(.secondary)
-                                        .frame(width: 28, alignment: .leading)
+                                        .frame(width: 26, alignment: .leading)
 
                                     typeBadge(band.type)
-                                        .frame(width: 82, alignment: .leading)
+                                        .frame(width: 62, alignment: .leading)
 
                                     Text(band.frequency >= 100 ? String(format: "%.0f", band.frequency) : String(format: "%.1f", band.frequency))
                                         .font(.system(size: 11, design: .monospaced))
@@ -95,12 +96,12 @@ public struct PEQTableView: View {
                                     Text(String(format: "%+.2f", band.gain))
                                         .font(.system(size: 11, weight: .medium, design: .monospaced))
                                         .foregroundColor(.primary)
-                                        .frame(maxWidth: .infinity, alignment: .trailing)
+                                        .frame(width: 64, alignment: .trailing)
 
                                     Text(String(format: "%.2f", band.q))
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(.secondary)
-                                        .frame(maxWidth: .infinity, alignment: .trailing)
+                                        .frame(width: 54, alignment: .trailing)
                                 }
                                 .padding(.horizontal, 10)
                                 .padding(.vertical, 5)
@@ -125,16 +126,29 @@ public struct PEQTableView: View {
                 }
             }
             .frame(maxHeight: .infinity)
-            .background(.ultraThinMaterial)
+            .background(Color.black.opacity(0.2))
             .cornerRadius(8)
             .overlay(
                 RoundedRectangle(cornerRadius: 8)
-                    .stroke(Color.white.opacity(0.1), lineWidth: 0.5)
+                    .stroke(Color.white.opacity(0.08), lineWidth: 0.5)
             )
         }
-        .padding(12)
+        .padding(10)
         .frame(maxHeight: .infinity)
-        .liquidGlass(cornerRadius: 10)
+        .background(
+            ZStack {
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(.ultraThinMaterial)
+                RoundedRectangle(cornerRadius: 10)
+                    .fill(Color.black.opacity(0.3))
+            }
+        )
+        .cornerRadius(10)
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.12), lineWidth: 0.5)
+        )
+        .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
     }
 
     private func typeBadge(_ type: FilterType) -> some View {

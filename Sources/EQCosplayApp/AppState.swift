@@ -35,18 +35,38 @@ public final class AppState: ObservableObject {
 
     public init() {
         self.outputDevices = CoreAudioService.getAudioOutputDevices()
-        if let hp = self.outputDevices.first(where: { $0.name.lowercased().contains("headphone") || $0.name.contains("耳机") }) {
+        // Priority 1: Use the system's actual default playback device (speakers, USB DAC, or connected headphones)
+        if let def = self.outputDevices.first(where: { $0.isDefault }) {
+            self.selectedDevice = def
+        } else if let hp = self.outputDevices.first(where: { $0.name.lowercased().contains("headphone") || $0.name.contains("耳机") }) {
             self.selectedDevice = hp
+        } else if let spk = self.outputDevices.first(where: { $0.name.contains("扬声器") || $0.name.lowercased().contains("speaker") }) {
+            self.selectedDevice = spk
         } else {
-            self.selectedDevice = self.outputDevices.first { $0.isDefault } ?? self.outputDevices.first
+            self.selectedDevice = self.outputDevices.first
         }
         self.isBlackHoleFound = BlackHoleManager.isBlackHoleInstalled()
         self.refreshPresets()
 
-        // Hook up CamillaProcess log callback
+        // Hook up CamillaProcess callbacks
         CamillaProcess.shared.onLogMessage = { [weak self] message in
             Task { @MainActor in
                 self?.appendLog(message)
+            }
+        }
+        CamillaProcess.shared.onProcessTerminated = { [weak self] code in
+            Task { @MainActor in
+                if self?.isEngineRunning == true {
+                    self?.isEngineRunning = false
+                    self?.activePresetTitle = nil
+                    self?.appendLog("[WARN] CamillaDSP 进程已退出 (退出码: \(code))。已自动停止引擎。")
+                    if let prevId = self?.previousDefaultOutputDeviceID {
+                        CoreAudioService.setDefaultOutputDeviceID(prevId)
+                        let prevName = CoreAudioService.getDeviceName(deviceID: prevId)
+                        self?.appendLog("[i] 系统音频输出已自动恢复为: \(prevName)")
+                        self?.previousDefaultOutputDeviceID = nil
+                    }
+                }
             }
         }
     }
@@ -174,10 +194,13 @@ public final class AppState: ObservableObject {
                 rightPath = rightUrl.path
             }
 
+            let bhDevice = BlackHoleManager.getBlackHoleDevice()
+            let captureName = bhDevice?.name ?? "BlackHole 2ch"
+
             let yaml = CamillaDSPConfig.generateYAML(
                 bands: result.peqBands,
                 outputDeviceName: device.name,
-                captureDeviceName: "BlackHole 2ch",
+                captureDeviceName: captureName,
                 sampleRate: sampleRate.rawValue,
                 preampGain: preampGain,
                 firLeftPath: leftPath,
@@ -187,7 +210,7 @@ public final class AppState: ObservableObject {
 
             try yaml.write(to: configURL, atomically: true, encoding: .utf8)
 
-            appendLog("[..] 正在启动 CamillaDSP 引擎...")
+            appendLog("[..] 正在启动 CamillaDSP 引擎 (采集: \(captureName) -> 播放: \(device.name))...")
             try CamillaProcess.shared.start(configPath: configURL)
 
             // Save previous physical default output device and switch macOS system output to BlackHole 2ch
@@ -195,7 +218,7 @@ public final class AppState: ObservableObject {
             if currentDef != blackHoleId {
                 self.previousDefaultOutputDeviceID = currentDef
                 CoreAudioService.setDefaultOutputDeviceID(blackHoleId)
-                appendLog("[OK] 系统默认音频输出已自动路由至: BlackHole 2ch")
+                appendLog("[OK] 系统默认音频输出已自动路由至: \(captureName)")
             } else if self.previousDefaultOutputDeviceID == nil {
                 self.previousDefaultOutputDeviceID = device.id
             }
