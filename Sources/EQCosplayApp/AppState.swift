@@ -145,7 +145,7 @@ public final class AppState: ObservableObject {
 
     public func deployCamillaDSP() {
         guard let result = correctionResult, let device = selectedDevice else {
-            appendLog("[!] Missing correction result or output device.")
+            appendLog("[!] 缺少拟合结果或未选择播放输出设备。")
             return
         }
 
@@ -155,7 +155,7 @@ public final class AppState: ObservableObject {
         }
 
         do {
-            appendLog("[..] Generating CamillaDSP configuration for \(device.name)...")
+            appendLog("[..] 正在生成 CamillaDSP 配置（目标输出: \(device.name))...")
             let preampGain = preampMode.calculateGain(peak: result.responsePeak)
 
             let dir = PresetsManager.getPresetsDirectory()
@@ -187,23 +187,25 @@ public final class AppState: ObservableObject {
 
             try yaml.write(to: configURL, atomically: true, encoding: .utf8)
 
-            appendLog("[..] Starting CamillaDSP process...")
+            appendLog("[..] 正在启动 CamillaDSP 引擎...")
             try CamillaProcess.shared.start(configPath: configURL)
 
-            // Save previous default output device and automatically switch macOS system output to BlackHole 2ch
+            // Save previous physical default output device and switch macOS system output to BlackHole 2ch
             let currentDef = CoreAudioService.getDefaultOutputDeviceID()
             if currentDef != blackHoleId {
                 self.previousDefaultOutputDeviceID = currentDef
                 CoreAudioService.setDefaultOutputDeviceID(blackHoleId)
                 appendLog("[OK] 系统默认音频输出已自动路由至: BlackHole 2ch")
+            } else if self.previousDefaultOutputDeviceID == nil {
+                self.previousDefaultOutputDeviceID = device.id
             }
 
             self.isEngineRunning = true
             self.activePresetTitle = "\(selectedSource?.name ?? "") → \(selectedTarget?.name ?? "")"
-            appendLog("[OK] CamillaDSP 已启动，监听输出设备: \(device.name)")
-            appendLog("[TIP] 现在可在播放器播放音频，音频已由 DSP 实时滤波处理。")
+            appendLog("[OK] CamillaDSP 已启动，声音由 BlackHole 采集滤波并输出至: \(device.name)")
+            appendLog("[TIP] 若无声，请确认系统输出已选择 BlackHole 2ch，且输出设备为: \(device.name)")
         } catch {
-            appendLog("[ERR] Failed to start CamillaDSP: \(error.localizedDescription)")
+            appendLog("[ERR] CamillaDSP 启动失败: \(error.localizedDescription)")
         }
     }
 
@@ -216,11 +218,14 @@ public final class AppState: ObservableObject {
         if let prevId = previousDefaultOutputDeviceID {
             CoreAudioService.setDefaultOutputDeviceID(prevId)
             let prevName = CoreAudioService.getDeviceName(deviceID: prevId)
-            appendLog("[i] 系统音频输出已自动恢复为: \(prevName)")
+            appendLog("[i] 系统音频输出已恢复为: \(prevName)")
             self.previousDefaultOutputDeviceID = nil
         } else if let dev = selectedDevice {
             CoreAudioService.setDefaultOutputDeviceID(dev.id)
             appendLog("[i] 系统音频输出已恢复为: \(dev.name)")
+        } else if let firstPhysical = outputDevices.first {
+            CoreAudioService.setDefaultOutputDeviceID(firstPhysical.id)
+            appendLog("[i] 系统音频输出已恢复为: \(firstPhysical.name)")
         }
 
         appendLog("[OK] CamillaDSP 已停止。")
@@ -231,10 +236,15 @@ public final class AppState: ObservableObject {
         self.isBlackHoleFound = BlackHoleManager.isBlackHoleInstalled()
 
         if selectedDevice == nil || !outputDevices.contains(where: { $0.id == selectedDevice?.id }) {
-            if let hp = outputDevices.first(where: { $0.name.lowercased().contains("headphone") || $0.name.contains("耳机") }) {
-                self.selectedDevice = hp
+            // Priority 1: Match the actual macOS default output device
+            if let def = outputDevices.first(where: { $0.isDefault }) {
+                self.selectedDevice = def
+            } else if let prevId = previousDefaultOutputDeviceID, let prev = outputDevices.first(where: { $0.id == prevId }) {
+                self.selectedDevice = prev
+            } else if let spk = outputDevices.first(where: { $0.name.contains("扬声器") || $0.name.lowercased().contains("speaker") }) {
+                self.selectedDevice = spk
             } else {
-                self.selectedDevice = outputDevices.first { $0.isDefault } ?? outputDevices.first
+                self.selectedDevice = outputDevices.first
             }
         }
     }
@@ -244,9 +254,18 @@ public final class AppState: ObservableObject {
     }
 
     public func loadPreset(_ preset: PresetInfo) {
-        appendLog("[..] Loading preset: \(preset.name)...")
+        guard let device = selectedDevice else {
+            appendLog("[!] 请选择播放输出设备。")
+            return
+        }
+        appendLog("[..] 正在加载预设: \(preset.name)...")
         do {
-            try CamillaProcess.shared.start(configPath: preset.path)
+            // Apply current selected playback device to preset YAML (matching original Python behavior)
+            let activeConfigURL = try PresetsManager.preparePresetForLaunch(
+                presetURL: preset.path,
+                outputDeviceName: device.name
+            )
+            try CamillaProcess.shared.start(configPath: activeConfigURL)
 
             if let blackHoleId = BlackHoleManager.getBlackHoleDeviceID() {
                 let currentDef = CoreAudioService.getDefaultOutputDeviceID()
@@ -254,14 +273,34 @@ public final class AppState: ObservableObject {
                     self.previousDefaultOutputDeviceID = currentDef
                     CoreAudioService.setDefaultOutputDeviceID(blackHoleId)
                     appendLog("[OK] 系统默认音频输出已自动路由至: BlackHole 2ch")
+                } else if self.previousDefaultOutputDeviceID == nil {
+                    self.previousDefaultOutputDeviceID = device.id
                 }
             }
 
             self.isEngineRunning = true
             self.activePresetTitle = preset.name
-            appendLog("[OK] Preset \(preset.name) activated.")
+            appendLog("[OK] 预设 \(preset.name) 已激活，音频输出至: \(device.name)")
+            appendLog("[TIP] 若无声，请确认系统输出已选择 BlackHole 2ch，且输出设备为: \(device.name)")
         } catch {
-            appendLog("[ERR] Failed to load preset \(preset.name): \(error.localizedDescription)")
+            appendLog("[ERR] 加载预设 \(preset.name) 失败: \(error.localizedDescription)")
+        }
+    }
+
+    public func reapplyCurrentPlaybackDevice() {
+        guard isEngineRunning, let dev = selectedDevice else { return }
+        appendLog("[..] 播放设备已更改为: \(dev.name)，正在重新定向引擎...")
+        if let configURL = CamillaProcess.shared.activeConfigPath {
+            do {
+                let updatedURL = try PresetsManager.preparePresetForLaunch(
+                    presetURL: configURL,
+                    outputDeviceName: dev.name
+                )
+                try CamillaProcess.shared.start(configPath: updatedURL)
+                appendLog("[OK] 引擎已成功重新定向至: \(dev.name)")
+            } catch {
+                appendLog("[ERR] 重新定向失败: \(error.localizedDescription)")
+            }
         }
     }
 

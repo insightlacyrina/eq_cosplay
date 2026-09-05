@@ -150,4 +150,27 @@ public enum PresetsManager {
         try? FileManager.default.removeItem(at: leftWav)
         try? FileManager.default.removeItem(at: rightWav)
     }
+
+    /// Updates playback.device in the preset YAML to match the user's currently selected physical device,
+    /// writing to active_camilla_config.yml in Application Support before starting CamillaDSP.
+    public static func preparePresetForLaunch(presetURL: URL, outputDeviceName: String) throws -> URL {
+        let rawText = try String(contentsOf: presetURL, encoding: .utf8)
+        let pattern = try NSRegularExpression(
+            pattern: #"(playback:\s*\n(?:[ \t]+[^\n]+\n)*?[ \t]+device:\s*)(?:"[^"]*"|'[^']*'|[^\n]+)"#,
+            options: []
+        )
+        let range = NSRange(rawText.startIndex..<rawText.endIndex, in: rawText)
+        let updatedText = pattern.stringByReplacingMatches(
+            in: rawText,
+            options: [],
+            range: range,
+            withTemplate: "$1\"\(outputDeviceName)\""
+        )
+
+        let dir = getPresetsDirectory()
+        let activeLaunchURL = dir.appendingPathComponent("active_camilla_config.yml")
+        try updatedText.write(to: activeLaunchURL, atomically: true, encoding: .utf8)
+        return activeLaunchURL
+    }
+
 }

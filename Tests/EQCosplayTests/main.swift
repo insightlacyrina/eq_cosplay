@@ -221,6 +221,29 @@ do {
     let data = try Data(contentsOf: testUrl)
     // 58 bytes header + 16 bytes payload = 74 bytes total
     assertEqual(data.count, 74, "Wav file has correct IEEE Float header + payload size")
+
+    // PresetsManager preparePresetForLaunch test
+    let samplePreset = """
+devices:
+  samplerate: 48000
+  chunksize: 1024
+  capture:
+    type: CoreAudio
+    channels: 2
+    device: "BlackHole 2ch"
+  playback:
+    type: CoreAudio
+    channels: 2
+    device: "外置耳机"
+
+filters:
+"""
+    let tmpPresetURL = URL(fileURLWithPath: "/tmp/sample_preset.yml")
+    try samplePreset.write(to: tmpPresetURL, atomically: true, encoding: .utf8)
+    let launchedURL = try PresetsManager.preparePresetForLaunch(presetURL: tmpPresetURL, outputDeviceName: "MacBook Pro扬声器")
+    let launchedContent = try String(contentsOf: launchedURL, encoding: .utf8)
+    assertTrue(launchedContent.contains("device: \"MacBook Pro扬声器\""), "Preset updated to target MacBook Pro扬声器")
+
 }
 print("\n-------------------------------------------------------")
 if passedTests == totalTests {

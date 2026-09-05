@@ -48,6 +48,7 @@ public struct SettingsBarView: View {
             },
             set: { newDev in
                 appState.selectedDevice = newDev
+                appState.reapplyCurrentPlaybackDevice()
             }
         )
     }
