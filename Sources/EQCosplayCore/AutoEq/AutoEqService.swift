@@ -3,14 +3,29 @@ import Foundation
 public final class AutoEqService: @unchecked Sendable {
     public static let shared = AutoEqService()
 
-    public static let indexRawUrl = "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/INDEX.md"
-    public static let mirrorIndexUrl = "https://ghfast.top/https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/INDEX.md"
+    public static let indexUrls = [
+        "https://cdn.jsdelivr.net/gh/jaakkopasanen/AutoEq@master/results/INDEX.md",
+        "https://cdn.jsdmirror.com/gh/jaakkopasanen/AutoEq@master/results/INDEX.md",
+        "https://ghfast.top/https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/INDEX.md",
+        "https://raw.githubusercontent.com/jaakkopasanen/AutoEq/master/results/INDEX.md"
+    ]
 
     public private(set) var database: [String: [HeadphoneEntry]] = [:]
     public private(set) var isLoaded = false
 
     private init() {
-        // Pre-populate with essential fallback models
+        // Pre-load from cached INDEX.md if available
+        let cacheFile = Self.getCacheDir().appendingPathComponent("INDEX.md")
+        if FileManager.default.fileExists(atPath: cacheFile.path),
+           let cachedText = try? String(contentsOf: cacheFile, encoding: .utf8) {
+            let parsed = IndexParser.parseAutoEqIndex(rawText: cachedText)
+            if !parsed.isEmpty {
+                self.database = parsed
+                self.isLoaded = true
+                return
+            }
+        }
+        // Fallback to essential curated models
         self.database = Self.builtinFallbackEntries
     }
 
@@ -24,8 +39,8 @@ public final class AutoEqService: @unchecked Sendable {
     public func loadDatabase() async {
         let cacheFile = Self.getCacheDir().appendingPathComponent("INDEX.md")
 
-        // 1. Try reading existing local cached INDEX.md
-        if FileManager.default.fileExists(atPath: cacheFile.path),
+        // 1. If not yet loaded, try reading local cache
+        if !isLoaded && FileManager.default.fileExists(atPath: cacheFile.path),
            let cachedText = try? String(contentsOf: cacheFile, encoding: .utf8) {
             let parsed = IndexParser.parseAutoEqIndex(rawText: cachedText)
             if !parsed.isEmpty {
@@ -34,11 +49,10 @@ public final class AutoEqService: @unchecked Sendable {
             }
         }
 
-        // 2. Fetch fresh index in background
-        let urls = [Self.indexRawUrl, Self.mirrorIndexUrl]
-        for urlStr in urls {
+        // 2. Fetch fresh index across CDN / mirrors
+        for urlStr in Self.indexUrls {
             guard let url = URL(string: urlStr) else { continue }
-            var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 15.0)
+            var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData, timeoutInterval: 12.0)
             request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36", forHTTPHeaderField: "User-Agent")
 
             do {
@@ -71,7 +85,8 @@ public final class AutoEqService: @unchecked Sendable {
     public static let builtinFallbackEntries: [String: [HeadphoneEntry]] = [
         "sony wh-1000xm4": [
             HeadphoneEntry(name: "Sony WH-1000XM4", form: "over-ear", rig: "oratory1990", provider: "oratory1990", relativePath: "oratory1990/over-ear/Sony WH-1000XM4"),
-            HeadphoneEntry(name: "Sony WH-1000XM4", form: "over-ear", rig: "rtings", provider: "rtings", relativePath: "rtings/rtings_harman_over-ear_2018/Sony WH-1000XM4")
+            HeadphoneEntry(name: "Sony WH-1000XM4", form: "over-ear", rig: "rtings", provider: "rtings", relativePath: "rtings/rtings_harman_over-ear_2018/Sony WH-1000XM4"),
+            HeadphoneEntry(name: "Sony WH-1000XM4", form: "over-ear", rig: "crinacle", provider: "crinacle", relativePath: "crinacle/GRAS 43AG-7 over-ear/Sony WH-1000XM4")
         ],
         "akg q701": [
             HeadphoneEntry(name: "AKG Q701", form: "over-ear", rig: "oratory1990", provider: "oratory1990", relativePath: "oratory1990/over-ear/AKG Q701"),

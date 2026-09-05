@@ -165,6 +165,40 @@ do {
     assertTrue(yaml.contains("# eq_cosplay_metrics:"), "YAML contains embedded metrics comment")
 }
 
+// Test Group 6: AutoEq CSV Fetcher & Provider Fallback
+print("\nTesting CSVFetcher & Provider Fallback...")
+do {
+    let crinacleEntry = HeadphoneEntry(
+        name: "Sony WH-1000XM4",
+        form: "over-ear",
+        rig: "crinacle",
+        provider: "crinacle",
+        relativePath: "crinacle/GRAS 43AG-7 over-ear/Sony WH-1000XM4"
+    )
+    let candidates = CSVFetcher.providerCandidates(for: crinacleEntry)
+    assertTrue(candidates.count >= 2, "Sony WH-1000XM4 has provider candidates (found \(candidates.count))")
+    assertTrue(candidates.contains(where: { $0.provider.lowercased().contains("oratory") }), "Candidates include oratory1990 fallback")
+
+    let semaphore = DispatchSemaphore(value: 0)
+    var fetchSuccess = false
+    var returnedFreqs = 0
+    var usedProvider = ""
+    Task {
+        do {
+            let res = try await CSVFetcher.fetchCSVWithDetails(for: crinacleEntry)
+            fetchSuccess = !res.freqs.isEmpty
+            returnedFreqs = res.freqs.count
+            usedProvider = res.usedEntry.provider
+        } catch {
+            print("Fetch failed: \(error)")
+        }
+        semaphore.signal()
+    }
+    _ = semaphore.wait(timeout: .now() + 15.0)
+
+    assertTrue(fetchSuccess, "Downloaded CSV for Sony WH-1000XM4 with fallback (used \(usedProvider), \(returnedFreqs) points)")
+}
+
 print("\n-------------------------------------------------------")
 if passedTests == totalTests {
     print("\u{001B}[32mAll \(totalTests) tests passed successfully!\u{001B}[0m")

@@ -108,8 +108,15 @@ public final class AppState: ObservableObject {
         appendLog("[..] Downloading frequency response data for \(source.name) and \(target.name)...")
 
         do {
-            let (srcFreqs, srcMags) = try await CSVFetcher.fetchCSV(for: source)
-            let (tgtFreqs, tgtMags) = try await CSVFetcher.fetchCSV(for: target)
+            let (srcFreqs, srcMags, usedSrc) = try await CSVFetcher.fetchCSVWithDetails(for: source)
+            if usedSrc.provider.lowercased() != source.provider.lowercased() {
+                appendLog("[i] Fallback provider for \(source.name): using \(usedSrc.provider) instead of \(source.provider)")
+            }
+
+            let (tgtFreqs, tgtMags, usedTgt) = try await CSVFetcher.fetchCSVWithDetails(for: target)
+            if usedTgt.provider.lowercased() != target.provider.lowercased() {
+                appendLog("[i] Fallback provider for \(target.name): using \(usedTgt.provider) instead of \(target.provider)")
+            }
 
             appendLog("[..] Optimizing 10-band PEQ and synthesizing minimum-phase FIR...")
             let result = CorrectionEngine.calculateCorrection(
