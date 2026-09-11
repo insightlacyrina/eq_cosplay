@@ -41,6 +41,9 @@ public struct HeadphoneEntry: Identifiable, Codable, Hashable, Sendable {
         if provider.isEmpty {
             return name
         }
+        if name.contains("(\(provider))") {
+            return name
+        }
         return "\(name) (\(provider))"
     }
 
@@ -132,6 +135,24 @@ public struct CorrectionResult: Sendable {
         self.simulatedCurve = simulatedCurve
         self.peqResponse = peqResponse
     }
+
+    public var compensationCurve: [Double] {
+        if useFir, let ir = firIr, !ir.isEmpty {
+            let firResp = FIRDesigner.firResponseDb(freqs: gridFreqs, ir: ir, fs: 48000.0)
+            var combined = [Double](repeating: 0.0, count: min(peqResponse.count, firResp.count))
+            for i in 0..<combined.count {
+                combined[i] = peqResponse[i] + firResp[i]
+            }
+            return combined
+        } else {
+            return peqResponse
+        }
+    }
+}
+
+public enum PlotDisplayMode: String, CaseIterable, Sendable {
+    case curves
+    case compensation
 }
 
 public enum PreampMode: Codable, Equatable, Hashable, Sendable {
@@ -180,7 +201,7 @@ public struct AudioDevice: Identifiable, Equatable, Hashable, Sendable {
     public var uid: String
     public var isDefault: Bool
 
-    public init(id: UInt32, name: String, uid: String, isDefault: Bool) {
+    public init(id: UInt32, name: String, uid: String, isDefault: Bool = false) {
         self.id = id
         self.name = name
         self.uid = uid
@@ -194,6 +215,10 @@ public struct PresetInfo: Identifiable, Equatable, Hashable, Sendable {
     public var path: URL
     public var sourceName: String
     public var targetName: String
+    public var sourceModel: String
+    public var sourceProvider: String
+    public var targetModel: String
+    public var targetProvider: String
     public var hasFir: Bool
     public var metrics: [String: Double]
     public var modifiedDate: Date
@@ -203,6 +228,10 @@ public struct PresetInfo: Identifiable, Equatable, Hashable, Sendable {
         path: URL,
         sourceName: String,
         targetName: String,
+        sourceModel: String = "",
+        sourceProvider: String = "",
+        targetModel: String = "",
+        targetProvider: String = "",
         hasFir: Bool,
         metrics: [String: Double],
         modifiedDate: Date
@@ -211,6 +240,10 @@ public struct PresetInfo: Identifiable, Equatable, Hashable, Sendable {
         self.path = path
         self.sourceName = sourceName
         self.targetName = targetName
+        self.sourceModel = sourceModel.isEmpty ? sourceName : sourceModel
+        self.sourceProvider = sourceProvider
+        self.targetModel = targetModel.isEmpty ? targetName : targetModel
+        self.targetProvider = targetProvider
         self.hasFir = hasFir
         self.metrics = metrics
         self.modifiedDate = modifiedDate

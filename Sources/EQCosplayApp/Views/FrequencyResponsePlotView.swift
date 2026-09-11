@@ -17,11 +17,29 @@ public struct FrequencyResponsePlotView: View {
 
     public var body: some View {
         VStack(spacing: 8) {
-            // Plot Header & Legend (All monochrome text)
-            HStack(spacing: 16) {
-                legendItem(title: I18n.shared.t("plot_source"), color: Color(white: 0.6))
-                legendItem(title: I18n.shared.t("plot_target"), color: Color.white)
-                legendItem(title: I18n.shared.t("plot_simulated"), color: Color(red: 0.35, green: 0.85, blue: 0.75))
+            // Plot Header & Legend (Dynamic switch between compensation and 3-curve views)
+            HStack(spacing: 8) {
+                if appState.plotDisplayMode == .compensation {
+                    legendItem(title: I18n.shared.t("plot_compensation"), color: Color(red: 0.35, green: 0.85, blue: 0.75))
+                } else {
+                    HStack(spacing: 16) {
+                        legendItem(title: I18n.shared.t("plot_source"), color: Color(white: 0.6))
+                        legendItem(title: I18n.shared.t("plot_target"), color: Color.white)
+                        legendItem(title: I18n.shared.t("plot_simulated"), color: Color(red: 0.35, green: 0.85, blue: 0.75))
+                    }
+                }
+
+                Button(action: {
+                    withAnimation(.spring(response: 0.30, dampingFraction: 0.80)) {
+                        appState.togglePlotDisplayMode()
+                    }
+                }) {
+                    Image(systemName: "arrow.triangle.2.circlepath")
+                        .font(.system(size: 10))
+                        .foregroundColor(.secondary)
+                }
+                .buttonStyle(.plain)
+                .help(I18n.shared.t("toggle_plot_mode"))
 
                 Spacer()
 
@@ -110,9 +128,22 @@ public struct FrequencyResponsePlotView: View {
                         // Draw Curves
                         if let result = appState.correctionResult {
                             let freqs = result.gridFreqs
-                            drawCurve(ctx: ctx, freqs: freqs, mags: result.sourceCurve, color: Color(white: 0.6), lineWidth: 1.8, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
-                            drawCurve(ctx: ctx, freqs: freqs, mags: result.targetCurve, color: Color.white, lineWidth: 1.8, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
-                            drawCurve(ctx: ctx, freqs: freqs, mags: result.simulatedCurve, color: Color(red: 0.35, green: 0.85, blue: 0.75), lineWidth: 2.2, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
+                            if appState.plotDisplayMode == .compensation {
+                                // 0 dB reference line
+                                let zeroY = padT + CGFloat((yMax - 0.0) / (yMax - yMin)) * plotH
+                                if zeroY >= padT && zeroY <= padT + plotH {
+                                    var zeroLine = Path()
+                                    zeroLine.move(to: CGPoint(x: padL, y: zeroY))
+                                    zeroLine.addLine(to: CGPoint(x: padL + plotW, y: zeroY))
+                                    ctx.stroke(zeroLine, with: .color(Color.white.opacity(0.2)), style: StrokeStyle(lineWidth: 1, dash: [4, 4]))
+                                }
+
+                                drawCurve(ctx: ctx, freqs: freqs, mags: result.compensationCurve, color: Color(red: 0.35, green: 0.85, blue: 0.75), lineWidth: 2.2, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
+                            } else {
+                                drawCurve(ctx: ctx, freqs: freqs, mags: result.sourceCurve, color: Color(white: 0.6), lineWidth: 1.8, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
+                                drawCurve(ctx: ctx, freqs: freqs, mags: result.targetCurve, color: Color.white, lineWidth: 1.8, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
+                                drawCurve(ctx: ctx, freqs: freqs, mags: result.simulatedCurve, color: Color(red: 0.35, green: 0.85, blue: 0.75), lineWidth: 2.2, padL: padL, padT: padT, plotW: plotW, plotH: plotH, yMin: yMin, yMax: yMax)
+                            }
                         } else {
                             let emptyText = Text(I18n.shared.t("plot_empty_hint"))
                                 .font(.system(size: 12))
@@ -184,9 +215,14 @@ public struct FrequencyResponsePlotView: View {
             return (-15.0, 15.0)
         }
         var allVals: [Double] = []
-        allVals.append(contentsOf: res.sourceCurve)
-        allVals.append(contentsOf: res.targetCurve)
-        allVals.append(contentsOf: res.simulatedCurve)
+        if appState.plotDisplayMode == .compensation {
+            allVals = res.compensationCurve
+            allVals.append(0.0)
+        } else {
+            allVals.append(contentsOf: res.sourceCurve)
+            allVals.append(contentsOf: res.targetCurve)
+            allVals.append(contentsOf: res.simulatedCurve)
+        }
 
         guard let minV = allVals.min(), let maxV = allVals.max() else {
             return (-15.0, 15.0)

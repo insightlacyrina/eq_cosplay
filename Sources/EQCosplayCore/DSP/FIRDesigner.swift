@@ -108,17 +108,18 @@ public enum FIRDesigner {
             }
         }
 
-        // 2. Real cepstrum c[n] = IFFT(log |H[k]|)
+        // 2. Real cepstrum c[n] = IFFT(log |H[k]|). Log-magnitude is even, so
+        // discard residual imag from the complex FFT (numpy irfft is strictly real).
         FFT.transform(&fullSpectrum, inverse: true)
+        for n in 0..<nFft {
+            fullSpectrum[n].im = 0.0
+        }
 
         // 3. Apply causal minimum-phase cepstral window
         // w[0] = 1, w[1..<halfN] = 2, w[halfN] = 1, w[halfN+1..<nFft] = 0
-        fullSpectrum[0].im = 0.0
         for n in 1..<halfN {
             fullSpectrum[n].re *= 2.0
-            fullSpectrum[n].im *= 2.0
         }
-        fullSpectrum[halfN].im = 0.0
         for n in (halfN + 1)..<nFft {
             fullSpectrum[n] = ComplexD(re: 0.0, im: 0.0)
         }
@@ -149,8 +150,11 @@ public enum FIRDesigner {
         fs: Double,
         nTaps: Int = defaultTaps
     ) -> [Double] {
+        // Match Python: n_fft = 2**ceil(log2(max(n_taps, 64))) — design at tap length,
+        // not 2× taps. Oversized FFT + truncate smears the residual match.
         var nFft = 64
-        while nFft < max(nTaps * 2, 8192) {
+        let nFftMin = max(nTaps, 64)
+        while nFft < nFftMin {
             nFft <<= 1
         }
         let halfN = nFft / 2

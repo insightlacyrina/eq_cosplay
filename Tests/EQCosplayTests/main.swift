@@ -346,6 +346,101 @@ filters:
     assertTrue(!preparedForeignContent.contains("foreign_user"), "Foreign path stripped cleanly")
     try? FileManager.default.removeItem(at: foreignDir)
 }
+
+// Test Group 10: XM4 → K3003 parity with the Python sibling
+print("\nTesting XM4 → K3003 correction (Python sibling parity)...")
+do {
+    let cacheDir = CSVFetcher.getCacheDir()
+    let srcURL = cacheDir.appendingPathComponent("Sony_WH-1000XM4_oratory1990.csv")
+    let tgtURL = cacheDir.appendingPathComponent("AKG_K3003_oratory1990.csv")
+
+    func loadCSV(_ url: URL) -> (freqs: [Double], mags: [Double])? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
+        return CSVFetcher.parseCSVData(data)
+    }
+
+    if let src = loadCSV(srcURL), let tgt = loadCSV(tgtURL) {
+        let result = CorrectionEngine.calculateCorrection(
+            sourceFreqs: src.freqs,
+            sourceMags: src.mags,
+            targetFreqs: tgt.freqs,
+            targetMags: tgt.mags,
+            fs: fs
+        )
+        print("    peq_rmse=\(String(format: "%.4f", result.peqRmse)) combined_rmse=\(String(format: "%.4f", result.combinedRmse)) level_offset=\(String(format: "%.3f", result.levelOffsetDb))")
+
+        assertTrue(result.useFir, "XM4→K3003 triggers FIR residual")
+        // Python sibling: peq_rmse ~1.220, combined RMSE ~0.144 dB on this pair.
+        assertTrue(
+            result.peqRmse < 1.35,
+            "PEQ RMSE near Python 1.22 dB (actual \(String(format: "%.4f", result.peqRmse)))"
+        )
+        assertTrue(
+            result.combinedRmse < 0.15,
+            "Combined RMSE near Python 0.144 dB (actual \(String(format: "%.4f", result.combinedRmse)))"
+        )
+
+        var sumBias = 0.0
+        for i in 0..<result.simulatedCurve.count {
+            sumBias += result.simulatedCurve[i] - result.targetCurve[i]
+        }
+        let meanBias = sumBias / Double(max(result.simulatedCurve.count, 1))
+        assertTrue(
+            abs(meanBias) < 0.05,
+            "Simulated vs aligned target has no systematic offset (mean \(String(format: "%.4f", meanBias)) dB)"
+        )
+    } else {
+        print("    [skip] cached XM4/K3003 CSVs not found")
+    }
+}
+
+// Test Group 11: Preset Headphone Provider Parsing & Plot Modes
+print("\nTesting Preset Provider Parsing & Plot Display Modes...")
+do {
+    // 1. parseModelAndProvider
+    let (m1, p1) = PresetsManager.parseModelAndProvider(rawString: "Sony_WH-1000XM4_oratory1990")
+    assertEqual(m1, "Sony WH-1000XM4", "Parsed model name from underscore filename")
+    assertEqual(p1, "oratory1990", "Parsed provider from underscore filename")
+
+    let (m2, p2) = PresetsManager.parseModelAndProvider(rawString: "Audio-Technica_ATH-M50xBT2_Rtings")
+    assertEqual(m2, "Audio-Technica ATH-M50xBT2", "Parsed hyphenated model name")
+    assertEqual(p2, "Rtings", "Parsed capitalized provider")
+
+    let (m3, p3) = PresetsManager.parseModelAndProvider(rawString: "Sony WH-1000XM4 (oratory1990)")
+    assertEqual(m3, "Sony WH-1000XM4", "Parsed model name from parentheses")
+    assertEqual(p3, "oratory1990", "Parsed provider from parentheses")
+
+    let (m4, p4) = PresetsManager.parseModelAndProvider(rawString: "Custom_Headphone")
+    assertEqual(m4, "Custom Headphone", "Parsed model name without provider")
+    assertEqual(p4, "", "Empty provider when none present")
+
+    // 2. HeadphoneEntry.displayName
+    let e1 = HeadphoneEntry(name: "Sony WH-1000XM4", form: "", rig: "", provider: "oratory1990", relativePath: "")
+    assertEqual(e1.displayName, "Sony WH-1000XM4 (oratory1990)", "displayName encloses provider in parentheses")
+
+    let e2 = HeadphoneEntry(name: "Sony WH-1000XM4 (oratory1990)", form: "", rig: "", provider: "oratory1990", relativePath: "")
+    assertEqual(e2.displayName, "Sony WH-1000XM4 (oratory1990)", "displayName avoids double parentheses")
+
+    let e3 = HeadphoneEntry(name: "Sennheiser HD 600", form: "", rig: "", provider: "", relativePath: "")
+    assertEqual(e3.displayName, "Sennheiser HD 600", "displayName omits empty parentheses")
+    assertTrue(!e3.displayName.contains("()"), "displayName contains no empty ()")
+
+    // 3. Preset discovery model/provider separation
+    let presets = PresetsManager.listPresets()
+    if let xm4Preset = presets.first(where: { $0.path.lastPathComponent.contains("WH-1000XM4") && $0.path.lastPathComponent.contains("Q701") }) {
+        assertEqual(xm4Preset.sourceModel, "Sony WH-1000XM4", "PresetInfo extracted source model cleanly")
+        assertEqual(xm4Preset.sourceProvider, "oratory1990", "PresetInfo extracted source provider cleanly")
+        assertEqual(xm4Preset.targetModel, "AKG Q701", "PresetInfo extracted target model cleanly")
+        assertEqual(xm4Preset.targetProvider, "oratory1990", "PresetInfo extracted target provider cleanly")
+        assertTrue(!xm4Preset.sourceName.contains("()"), "Preset sourceName has no empty ()")
+    }
+
+    // 4. CorrectionResult compensationCurve
+    let dummyBands = [PEQBand(type: .peaking, frequency: 1000.0, gain: 3.0, q: 1.0)]
+    let dummyRes = CorrectionEngine.createResultFromPreset(bands: dummyBands, firIr: nil, metrics: [:], fs: 48000, useFir: false)
+    assertEqual(dummyRes.compensationCurve.count, 512, "CorrectionResult compensationCurve has 512 points")
+}
+
 print("\n-------------------------------------------------------")
 if passedTests == totalTests {
     print("\u{001B}[32mAll \(totalTests) tests passed successfully!\u{001B}[0m")

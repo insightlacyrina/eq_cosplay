@@ -58,18 +58,34 @@ public enum PresetsManager {
                 var metrics: [String: Double] = [:]
                 var hasFir = false
 
+                var sourceModelFromMeta: String? = nil
+                var sourceProviderFromMeta: String? = nil
+                var targetModelFromMeta: String? = nil
+                var targetProviderFromMeta: String? = nil
+
                 if let content = try? String(contentsOf: file, encoding: .utf8) {
                     let lines = content.components(separatedBy: .newlines)
-                    if let first = lines.first, first.hasPrefix("# eq_cosplay_metrics:") {
-                        let jsonStr = String(first.dropFirst("# eq_cosplay_metrics:".count)).trimmingCharacters(in: .whitespaces)
-                        if let data = jsonStr.data(using: .utf8),
-                           let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
-                            for (k, v) in dict {
-                                if let d = v as? Double {
-                                    metrics[k] = d
-                                } else if let b = v as? Bool {
-                                    metrics[k] = b ? 1.0 : 0.0
+                    for line in lines.prefix(15) {
+                        if line.hasPrefix("# eq_cosplay_metrics:") {
+                            let jsonStr = String(line.dropFirst("# eq_cosplay_metrics:".count)).trimmingCharacters(in: .whitespaces)
+                            if let data = jsonStr.data(using: .utf8),
+                               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                                for (k, v) in dict {
+                                    if let d = v as? Double {
+                                        metrics[k] = d
+                                    } else if let b = v as? Bool {
+                                        metrics[k] = b ? 1.0 : 0.0
+                                    }
                                 }
+                            }
+                        } else if line.hasPrefix("# eq_cosplay_meta:") {
+                            let jsonStr = String(line.dropFirst("# eq_cosplay_meta:".count)).trimmingCharacters(in: .whitespaces)
+                            if let data = jsonStr.data(using: .utf8),
+                               let dict = try? JSONSerialization.jsonObject(with: data) as? [String: String] {
+                                sourceModelFromMeta = dict["source_model"]
+                                sourceProviderFromMeta = dict["source_provider"]
+                                targetModelFromMeta = dict["target_model"]
+                                targetProviderFromMeta = dict["target_provider"]
                             }
                         }
                     }
@@ -90,16 +106,27 @@ public enum PresetsManager {
                     displayName = String(displayName.dropFirst("cosplay_".count))
                 }
                 let components = displayName.components(separatedBy: "_to_")
-                let sourceName = components.first?.replacingOccurrences(of: "_", with: " ") ?? stem
-                let targetName = components.count > 1 ? components[1].replacingOccurrences(of: "_", with: " ") : ""
+                let sourceParsed = parseModelAndProvider(rawString: components.first ?? stem)
+                let targetParsed = components.count > 1 ? parseModelAndProvider(rawString: components[1]) : (model: "", provider: "")
 
-                let formattedName = components.count > 1 ? "\(sourceName) → \(targetName)" : displayName.replacingOccurrences(of: "_", with: " ")
+                let sModel = sourceModelFromMeta ?? sourceParsed.model
+                let sProvider = sourceProviderFromMeta ?? sourceParsed.provider
+                let tModel = targetModelFromMeta ?? targetParsed.model
+                let tProvider = targetProviderFromMeta ?? targetParsed.provider
+
+                let formattedSource = sProvider.isEmpty ? sModel : "\(sModel) (\(sProvider))"
+                let formattedTarget = tProvider.isEmpty ? tModel : "\(tModel) (\(tProvider))"
+                let formattedName = !tModel.isEmpty ? "\(formattedSource) → \(formattedTarget)" : formattedSource
 
                 presets.append(PresetInfo(
                     name: formattedName,
                     path: file,
-                    sourceName: sourceName,
-                    targetName: targetName,
+                    sourceName: formattedSource,
+                    targetName: formattedTarget,
+                    sourceModel: sModel,
+                    sourceProvider: sProvider,
+                    targetModel: tModel,
+                    targetProvider: tProvider,
                     hasFir: hasFir,
                     metrics: metrics,
                     modifiedDate: modDate
@@ -109,6 +136,42 @@ public enum PresetsManager {
 
         presets.sort { $0.modifiedDate > $1.modifiedDate }
         return presets
+    }
+
+    public static func parseModelAndProvider(rawString: String) -> (model: String, provider: String) {
+        let trimmed = rawString.trimmingCharacters(in: .whitespacesAndNewlines)
+
+        // 1. Check for explicit parentheses: "Model (Provider)"
+        if let openIdx = trimmed.lastIndex(of: "("), let closeIdx = trimmed.lastIndex(of: ")"), openIdx < closeIdx {
+            let model = String(trimmed[..<openIdx]).trimmingCharacters(in: .whitespaces)
+            let provider = String(trimmed[trimmed.index(after: openIdx)..<closeIdx]).trimmingCharacters(in: .whitespaces)
+            if !model.isEmpty && !provider.isEmpty {
+                return (model, provider)
+            }
+        }
+
+        // 2. Known providers list (case-insensitive)
+        let knownProviders = [
+            "oratory1990", "crinacle", "rtings", "kuulokenurkka", "rikudougoku",
+            "innerfidelity", "referenceaudioanalyzer", "headphonecom", "clarityfidelity",
+            "sbaf-serious", "superbestaudiofriends", "independent", "0000"
+        ]
+
+        let tokens = trimmed.components(separatedBy: CharacterSet(charactersIn: " _"))
+        if let last = tokens.last, !last.isEmpty {
+            let lowerLast = last.lowercased()
+            if knownProviders.contains(lowerLast) {
+                let prefixLength = trimmed.count - last.count
+                var modelPart = String(trimmed.prefix(prefixLength))
+                if modelPart.hasSuffix("_") || modelPart.hasSuffix(" ") {
+                    modelPart.removeLast()
+                }
+                let model = modelPart.replacingOccurrences(of: "_", with: " ").trimmingCharacters(in: .whitespaces)
+                return (model.isEmpty ? trimmed : model, last)
+            }
+        }
+
+        return (trimmed.replacingOccurrences(of: "_", with: " "), "")
     }
 
     public static func savePreset(
@@ -141,7 +204,7 @@ public enum PresetsManager {
             rightPath = rightUrl.path
         }
 
-        let yaml = CamillaDSPConfig.generateYAML(
+        var yaml = CamillaDSPConfig.generateYAML(
             bands: bands,
             outputDeviceName: outputDeviceName,
             captureDeviceName: "BlackHole 2ch",
@@ -151,6 +214,17 @@ public enum PresetsManager {
             firRightPath: rightPath,
             metrics: metrics
         )
+
+        let metaObj: [String: String] = [
+            "source_model": source.name,
+            "source_provider": source.provider,
+            "target_model": target.name,
+            "target_provider": target.provider
+        ]
+        if let metaData = try? JSONSerialization.data(withJSONObject: metaObj, options: [.sortedKeys]),
+           let metaStr = String(data: metaData, encoding: .utf8) {
+            yaml = "# eq_cosplay_meta: \(metaStr)\n" + yaml
+        }
 
         try yaml.write(to: yamlFile, atomically: true, encoding: .utf8)
         return yamlFile

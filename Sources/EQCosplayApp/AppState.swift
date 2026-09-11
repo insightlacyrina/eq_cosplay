@@ -30,6 +30,7 @@ public final class AppState: ObservableObject {
     @Published public var logs: [String] = []
     @Published public var isBlackHoleFound = true
     @Published public var isInstallingBlackHole = false
+    @Published public var plotDisplayMode: PlotDisplayMode = .curves
 
     // Active dropdown coordinator: ensures only one dropdown/search popup is open at a time
     @Published public var activeDropdownId: String? = nil
@@ -201,6 +202,7 @@ public final class AppState: ObservableObject {
 
             self.correctionResult = result
             self.isFIREnabled = result.useFir
+            self.plotDisplayMode = .curves
             let gain = preampMode.calculateGain(peak: result.responsePeak)
             appendLog("[OK] Correction calculated. Preamp: \(String(format: "%.2f", gain)) dB. RMSE: \(String(format: "%.2f", result.peqRmse)) dB.")
         } catch {
@@ -438,12 +440,32 @@ public final class AppState: ObservableObject {
                 useFir: details.hasFir
             )
             self.correctionResult = restored
-            if !preset.sourceName.isEmpty {
-                self.selectedSource = HeadphoneEntry(name: preset.sourceName, form: "", rig: "", provider: "", relativePath: "")
+            self.plotDisplayMode = .compensation
+
+            let sModel = !preset.sourceModel.isEmpty ? preset.sourceModel : preset.sourceName
+            let tModel = !preset.targetModel.isEmpty ? preset.targetModel : preset.targetName
+
+            if !sModel.isEmpty {
+                self.selectedSource = HeadphoneEntry(
+                    name: sModel,
+                    form: "",
+                    rig: preset.sourceProvider,
+                    provider: preset.sourceProvider,
+                    relativePath: ""
+                )
             }
-            if !preset.targetName.isEmpty {
-                self.selectedTarget = HeadphoneEntry(name: preset.targetName, form: "", rig: "", provider: "", relativePath: "")
+            if !tModel.isEmpty {
+                self.selectedTarget = HeadphoneEntry(
+                    name: tModel,
+                    form: "",
+                    rig: preset.targetProvider,
+                    provider: preset.targetProvider,
+                    relativePath: ""
+                )
             }
+
+            // Quietly fetch and populate raw curves in background for 3-curve view
+            self.loadRawCurvesForCurrentPreset()
         }
 
         do {
@@ -514,6 +536,63 @@ public final class AppState: ObservableObject {
             appendLog("[OK] Preset '\(name)' saved.")
         } catch {
             appendLog("[ERR] Failed to save preset: \(error.localizedDescription)")
+        }
+    }
+
+    public func togglePlotDisplayMode() {
+        if plotDisplayMode == .compensation {
+            plotDisplayMode = .curves
+            // If raw curves have not loaded yet (all zeros), trigger fetching
+            if let res = correctionResult, res.sourceCurve.allSatisfy({ abs($0) < 1e-6 }) {
+                loadRawCurvesForCurrentPreset()
+            }
+        } else {
+            plotDisplayMode = .compensation
+        }
+    }
+
+    public func loadRawCurvesForCurrentPreset() {
+        guard let src = selectedSource, let tgt = selectedTarget, let res = correctionResult else { return }
+        Task {
+            do {
+                let (srcFreqs, srcMags, _) = try await CSVFetcher.fetchCSVWithDetails(for: src)
+                let (tgtFreqs, tgtMags, _) = try await CSVFetcher.fetchCSVWithDetails(for: tgt)
+                let gridFreqs = res.gridFreqs
+                let fs = Double(sampleRate.rawValue)
+                let sourceInterp = LogGrid.interp(x: gridFreqs, xp: srcFreqs, yp: srcMags)
+                let targetInterp = LogGrid.interp(x: gridFreqs, xp: tgtFreqs, yp: tgtMags)
+
+                var deltaRaw = [Double](repeating: 0.0, count: 512)
+                for i in 0..<512 {
+                    deltaRaw[i] = targetInterp[i] - sourceInterp[i]
+                }
+                let (deltaAligned, _) = Smoothing.alignDeltaLevel(freqs: gridFreqs, deltaDb: deltaRaw)
+
+                let peqResp = Biquad.peqResponseDb(bands: res.peqBands, freqs: gridFreqs, fs: fs)
+                var combinedResp = peqResp
+                if isFIREnabled, let ir = res.firIr, !ir.isEmpty {
+                    let firResp = FIRDesigner.firResponseDb(freqs: gridFreqs, ir: ir, fs: fs)
+                    for i in 0..<512 {
+                        combinedResp[i] = peqResp[i] + firResp[i]
+                    }
+                }
+                var simulated = [Double](repeating: 0.0, count: 512)
+                var targetAligned = [Double](repeating: 0.0, count: 512)
+                for i in 0..<512 {
+                    simulated[i] = sourceInterp[i] + combinedResp[i]
+                    targetAligned[i] = sourceInterp[i] + deltaAligned[i]
+                }
+
+                await MainActor.run {
+                    var updated = res
+                    updated.sourceCurve = sourceInterp
+                    updated.targetCurve = targetAligned
+                    updated.simulatedCurve = simulated
+                    self.correctionResult = updated
+                }
+            } catch {
+                // Background fetch may silently fail if offline, leaving compensation curve view intact
+            }
         }
     }
 

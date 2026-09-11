@@ -87,7 +87,7 @@ public struct HeadphonePickerView: View {
 
                             if let s = selected.wrappedValue {
                                 HStack(spacing: 6) {
-                                    Text("\(s.name) (\(s.provider))")
+                                    Text(s.displayName)
                                         .font(.system(size: 12, weight: .medium))
                                         .foregroundColor(.primary)
                                         .lineLimit(1)

@@ -2,6 +2,11 @@
 
 **让一副耳机“扮演”另一副耳机的听感** — 基于 [AutoEq](https://github.com/jaakkopasanen/AutoEq) 频响数据库，利用 Apple 官方原生技术栈（**Swift 5.9+ / SwiftUI / CoreAudio / Accelerate DSP**）重构实现的现代化 macOS 耳机频响仿真与均衡校正系统。
 
+> [!NOTE]
+> **版本与适用平台说明**:
+> - **v1.1.x（当前 Swift 原生版本）**：专为 **macOS 系统独占打造**（完美支持 Apple Silicon 与 Intel 芯片，macOS 13.0+），提供极致硬件加速性能、低延迟与零外部运行环境依赖。
+> - **v1.0.x（Python 原版）**：**多平台版本**，支持 **Windows / Linux / macOS** 等跨平台环境运行。
+
 **语言:** [中文说明](README.zh-CN.md) · [English](README.md)
 
 ---

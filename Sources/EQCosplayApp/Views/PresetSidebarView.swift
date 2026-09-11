@@ -2,10 +2,18 @@ import SwiftUI
 import AppKit
 import EQCosplayCore
 
+private final class PresetSidebarUIState: ObservableObject {
+    @Published var hoveredPresetId: String? = nil
+    @Published var rowPositions: [String: CGFloat] = [:]
+}
+
+private final class ExpandedCardUIState: ObservableObject {
+    @Published var currentWidth: CGFloat = 260
+}
+
 public struct PresetSidebarView: View {
     @ObservedObject var appState: AppState
-    @State private var hoveredPresetId: String? = nil
-    @State private var rowPositions: [String: CGFloat] = [:]
+    @StateObject private var ui = PresetSidebarUIState()
 
     public init(appState: AppState) {
         self.appState = appState
@@ -31,7 +39,7 @@ public struct PresetSidebarView: View {
                         }
                     )
                     .id(preset.id)
-                    .offset(x: 10, y: max(32, min(rowPositions[expId] ?? 36, 104)))
+                    .offset(x: 10, y: max(32, min(ui.rowPositions[expId] ?? 36, 104)))
                     .zIndex(999)
                 }
             }
@@ -61,7 +69,7 @@ public struct PresetSidebarView: View {
         .shadow(color: .black.opacity(0.05), radius: 4, x: 0, y: 1)
         .onPreferenceChange(PresetRowPositionPreferenceKey.self) { prefs in
             for (k, v) in prefs {
-                rowPositions[k] = v
+                ui.rowPositions[k] = v
             }
         }
     }
@@ -111,7 +119,7 @@ public struct PresetSidebarView: View {
 
     private func presetRow(_ preset: PresetInfo) -> some View {
         let isCurrent = appState.activePresetTitle == preset.name
-        let isHovered = hoveredPresetId == preset.id
+        let isHovered = ui.hoveredPresetId == preset.id
         let peqRmse = preset.metrics["peq_rmse"]
 
         return GeometryReader { geo in
@@ -199,7 +207,7 @@ public struct PresetSidebarView: View {
             .brightness(isHovered ? 0.06 : 0.0)
             .contentShape(Rectangle())
             .onHover { h in
-                hoveredPresetId = h ? preset.id : nil
+                ui.hoveredPresetId = h ? preset.id : nil
             }
             .onTapGesture {
                 if appState.activeExpandedPresetId == preset.id {
@@ -250,7 +258,7 @@ private struct ExpandedPresetCardView: View {
     @ObservedObject var appState: AppState
     let onCollapse: () -> Void
 
-    @State private var currentWidth: CGFloat = 260
+    @StateObject private var cardUI = ExpandedCardUIState()
 
     var body: some View {
         let peqRmse = preset.metrics["peq_rmse"]
@@ -260,7 +268,7 @@ private struct ExpandedPresetCardView: View {
             // Ambient Blur Halo (expands rightward strictly with .leading anchor)
             RoundedRectangle(cornerRadius: 8)
                 .fill(.ultraThinMaterial)
-                .frame(width: currentWidth + 6, height: 38, alignment: .leading)
+                .frame(width: cardUI.currentWidth + 6, height: 38, alignment: .leading)
                 .blur(radius: 6)
                 .shadow(color: .black.opacity(0.40), radius: 16, x: 2, y: 5)
                 .offset(x: -3, y: -1)
@@ -337,7 +345,7 @@ private struct ExpandedPresetCardView: View {
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 5)
-            .frame(width: currentWidth, height: 36, alignment: .leading)
+            .frame(width: cardUI.currentWidth, height: 36, alignment: .leading)
             .background(
                 ZStack {
                     RoundedRectangle(cornerRadius: 8)
@@ -361,7 +369,7 @@ private struct ExpandedPresetCardView: View {
             .liquidGlass(cornerRadius: 8, isInteractive: true, isHighlighted: true)
             .brightness(0.06)
         }
-        .frame(width: currentWidth, height: 36, alignment: .leading)
+        .frame(width: cardUI.currentWidth, height: 36, alignment: .leading)
         .contentShape(Rectangle())
         .onTapGesture {
             collapse()
@@ -369,14 +377,14 @@ private struct ExpandedPresetCardView: View {
         .onAppear {
             // Anchor left edge firmly at x:0, smoothly expand only the right edge outward
             withAnimation(.spring(response: 0.32, dampingFraction: 0.76)) {
-                currentWidth = targetWidth
+                cardUI.currentWidth = targetWidth
             }
         }
     }
 
     private func collapse() {
         withAnimation(.spring(response: 0.28, dampingFraction: 0.80)) {
-            currentWidth = 260
+            cardUI.currentWidth = 260
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.26) {
             onCollapse()

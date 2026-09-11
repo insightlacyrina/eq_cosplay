@@ -4,6 +4,15 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Ensure stable macOS SDK when CommandLineTools default points to an incomplete SDK
+if [ -z "${SDKROOT:-}" ]; then
+    if [ -d "/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk" ]; then
+        export SDKROOT="/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk"
+    elif [ -d "/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk" ]; then
+        export SDKROOT="/Library/Developer/CommandLineTools/SDKs/MacOSX26.sdk"
+    fi
+fi
+
 echo "==> Building EQCosplay products in Release mode..."
 swift build -c release --product EQCosplayApp
 swift build -c release --product eq-cosplay-cli
@@ -11,6 +20,7 @@ swift build -c release --product eq-cosplay-cli
 BIN_DIR="$(swift build -c release --show-bin-path)"
 
 APP_NAME="EQ Cosplay.app"
+APP_VERSION="1.1.8"
 DIST_DIR="$SCRIPT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME"
 CONTENTS="$APP_BUNDLE/Contents"
@@ -80,24 +90,13 @@ if [ -d "$SCRIPT_DIR/presets" ]; then
     cp -R "$SCRIPT_DIR/presets" "$RESOURCES/"
 fi
 
-# Generate AppIcon.icns from assets/icons/app.png
-ICON_SRC="$SCRIPT_DIR/assets/icons/app.png"
-if [ -f "$ICON_SRC" ]; then
-    ICONSET_DIR="$(mktemp -d)/AppIcon.iconset"
-    mkdir -p "$ICONSET_DIR"
-    sips -z 16 16     "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16.png" >/dev/null 2>&1 || true
-    sips -z 32 32     "$ICON_SRC" --out "$ICONSET_DIR/icon_16x16@2x.png" >/dev/null 2>&1 || true
-    sips -z 32 32     "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32.png" >/dev/null 2>&1 || true
-    sips -z 64 64     "$ICON_SRC" --out "$ICONSET_DIR/icon_32x32@2x.png" >/dev/null 2>&1 || true
-    sips -z 128 128   "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128.png" >/dev/null 2>&1 || true
-    sips -z 256 256   "$ICON_SRC" --out "$ICONSET_DIR/icon_128x128@2x.png" >/dev/null 2>&1 || true
-    sips -z 256 256   "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256.png" >/dev/null 2>&1 || true
-    sips -z 512 512   "$ICON_SRC" --out "$ICONSET_DIR/icon_256x256@2x.png" >/dev/null 2>&1 || true
-    sips -z 512 512   "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512.png" >/dev/null 2>&1 || true
-    sips -z 1024 1024 "$ICON_SRC" --out "$ICONSET_DIR/icon_512x512@2x.png" >/dev/null 2>&1 || true
-
-    iconutil -c icns "$ICONSET_DIR" -o "$RESOURCES/AppIcon.icns" >/dev/null 2>&1 || true
-    rm -rf "$(dirname "$ICONSET_DIR")"
+# Bundle AppIcon.icns
+if [ -f "$SCRIPT_DIR/assets/icons/AppIcon.icns" ]; then
+    echo "==> Bundling AppIcon.icns..."
+    cp "$SCRIPT_DIR/assets/icons/AppIcon.icns" "$RESOURCES/AppIcon.icns"
+elif [ -f "$SCRIPT_DIR/assets/icons/app.png" ]; then
+    echo "==> Generating AppIcon.icns from app.png..."
+    cp "$SCRIPT_DIR/assets/icons/app.png" "$RESOURCES/AppIcon.png"
 fi
 
 # Write Info.plist
@@ -119,9 +118,9 @@ cat << 'PLIST' > "$CONTENTS/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.1.7</string>
+    <string>1.1.8</string>
     <key>CFBundleVersion</key>
-    <string>1.1.7</string>
+    <string>1.1.8</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
@@ -154,7 +153,7 @@ codesign --force --deep --entitlements "$CONTENTS/Entitlements.plist" -s - "$APP
 xattr -dr com.apple.quarantine "$APP_BUNDLE" 2>/dev/null || true
 
 # Prepare DMG staging
-echo "==> Packaging DMG & ZIP distribution artifacts for v1.1.7..."
+echo "==> Packaging DMG & ZIP distribution artifacts for v${APP_VERSION}..."
 DMG_STAGE="$DIST_DIR/dmg"
 mkdir -p "$DMG_STAGE"
 rm -rf "$DMG_STAGE/$APP_NAME"
@@ -164,21 +163,21 @@ if [ ! -L "$DMG_STAGE/Applications" ]; then
 fi
 
 # Create DMG
-DMG_OUT="$DIST_DIR/EQ-Cosplay-v1.1.7-macOS.dmg"
+DMG_OUT="$DIST_DIR/EQ-Cosplay-v${APP_VERSION}-macOS.dmg"
 rm -f "$DMG_OUT"
 hdiutil create -volname "EQ Cosplay" -srcfolder "$DMG_STAGE" -ov -format UDZO "$DMG_OUT" >/dev/null
 
 # Create ZIP
-(cd "$DIST_DIR" && rm -f "EQ-Cosplay-v1.1.7-macOS.zip" && zip -q -r -y "EQ-Cosplay-v1.1.7-macOS.zip" "$APP_NAME")
+(cd "$DIST_DIR" && rm -f "EQ-Cosplay-v${APP_VERSION}-macOS.zip" && zip -q -r -y "EQ-Cosplay-v${APP_VERSION}-macOS.zip" "$APP_NAME")
 
 # Create CLI Tarball
-(cd "$DIST_DIR" && rm -f "eq-cosplay-cli-v1.1.7-macOS-arm64.tar.gz" && tar -czf "eq-cosplay-cli-v1.1.7-macOS-arm64.tar.gz" "eq-cosplay-cli")
+(cd "$DIST_DIR" && rm -f "eq-cosplay-cli-v${APP_VERSION}-macOS-arm64.tar.gz" && tar -czf "eq-cosplay-cli-v${APP_VERSION}-macOS-arm64.tar.gz" "eq-cosplay-cli")
 
 echo ""
 echo "======================================================="
 echo " Build & packaging successful!"
 echo " Native macOS App: $APP_BUNDLE"
 echo " DMG artifact:     $DMG_OUT"
-echo " ZIP artifact:     $DIST_DIR/EQ-Cosplay-v1.1.7-macOS.zip"
-echo " CLI artifact:     $DIST_DIR/eq-cosplay-cli-v1.1.7-macOS-arm64.tar.gz"
+echo " ZIP artifact:     $DIST_DIR/EQ-Cosplay-v${APP_VERSION}-macOS.zip"
+echo " CLI artifact:     $DIST_DIR/eq-cosplay-cli-v${APP_VERSION}-macOS-arm64.tar.gz"
 echo "======================================================="

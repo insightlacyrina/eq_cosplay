@@ -102,12 +102,17 @@ public enum CorrectionEngine {
         var peak = -Double.infinity
         var valley = Double.infinity
         var simulatedCurve = [Double](repeating: 0.0, count: 512)
+        // Plot the level-aligned target (source + delta_aligned), matching the
+        // Python sibling. Fitting removes the 200–2000 Hz measurement offset, so
+        // overlaying the raw target makes the simulated curve look systematically low.
+        var targetAligned = [Double](repeating: 0.0, count: 512)
 
         for i in 0..<512 {
             let v = combinedResp[i]
             if v > peak { peak = v }
             if v < valley { valley = v }
             simulatedCurve[i] = sourceInterp[i] + v
+            targetAligned[i] = sourceInterp[i] + deltaAligned[i]
         }
 
         return CorrectionResult(
@@ -126,7 +131,7 @@ public enum CorrectionEngine {
             criticalStats: criticalStats,
             gridFreqs: gridFreqs,
             sourceCurve: sourceInterp,
-            targetCurve: targetInterp,
+            targetCurve: targetAligned,
             simulatedCurve: simulatedCurve,
             peqResponse: peqResp
         )

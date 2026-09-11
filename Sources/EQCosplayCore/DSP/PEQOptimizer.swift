@@ -9,6 +9,7 @@ public enum PEQOptimizer {
     public static let qShelfMin = 0.5
     public static let qShelfMax = 1.4
     public static let minOctaveSep = 0.38
+    public static let maxLowPeaking = 3
 
     public static func octaveDistance(_ f1: Double, _ f2: Double) -> Double {
         abs(log2(max(f1, 1e-6) / max(f2, 1e-6)))
@@ -83,73 +84,24 @@ public enum PEQOptimizer {
             residual[i] -= highResp[i]
         }
 
-        // 3) Find 8 Peaking extrema
-        var extrema: [(index: Int, freq: Double, mag: Double)] = []
-        for i in 1..<(freqs.count - 1) {
-            let f = freqs[i]
-            if f < 30.0 || f > 14000.0 { continue }
-            let prev = residual[i - 1]
-            let curr = residual[i]
-            let next = residual[i + 1]
+        let preferRegions: [(Double, Double)] = (criticalStats ?? [])
+            .filter { $0.isLarge }
+            .map { ($0.fLo, $0.fHi) }
 
-            let isPeak = curr > prev && curr > next && curr > 0.3
-            let isValley = curr < prev && curr < next && curr < -0.3
-            if isPeak || isValley {
-                extrema.append((i, f, curr))
-            }
-        }
-
-        // Sort by absolute magnitude descending
-        extrema.sort { abs($0.mag) > abs($1.mag) }
+        let selectedPairs = findResidualExtrema(
+            freqs: freqs,
+            residual: residual,
+            nPeaks: numPeaking,
+            existingFreqs: [lowFc, highFc],
+            preferRegions: preferRegions.isEmpty ? nil : preferRegions
+        )
 
         var selectedPeaking: [PEQBand] = []
-        var existingFreqs = [lowFc, highFc]
-
-        for item in extrema {
-            if selectedPeaking.count >= numPeaking { break }
-            let tooClose = existingFreqs.contains { octaveDistance($0, item.freq) < minOctaveSep }
-            if !tooClose {
-                // Estimate Q from -3dB drop
-                var q = 1.2
-                let peakMag = item.mag
-                let targetDrop = peakMag * 0.707
-                var leftF = item.freq
-                var rightF = item.freq
-
-                var l = item.index
-                while l > 0 && abs(residual[l]) >= abs(targetDrop) {
-                    l -= 1
-                }
-                leftF = freqs[l]
-
-                var r = item.index
-                while r < freqs.count - 1 && abs(residual[r]) >= abs(targetDrop) {
-                    r += 1
-                }
-                rightF = freqs[r]
-
-                let bw = rightF - leftF
-                if bw > 5.0 {
-                    q = item.freq / bw
-                }
-                q = min(max(q, qPeakMin), qPeakMax)
-                let gain = min(max(item.mag, gainMin), gainMax)
-
-                selectedPeaking.append(PEQBand(type: .peaking, frequency: item.freq, gain: gain, q: q))
-                existingFreqs.append(item.freq)
-            }
-        }
-
-        // If not enough extrema found, fill with logspace defaults
-        if selectedPeaking.count < numPeaking {
-            let needed = numPeaking - selectedPeaking.count
-            let fallbackFreqs = (1...needed).map { idx in
-                pow(10.0, log10(80.0) + (log10(8000.0) - log10(80.0)) * (Double(idx) / Double(needed + 1)))
-            }
-            for fb in fallbackFreqs {
-                let gain = LogGrid.interp(x: [fb], xp: freqs, yp: residual).first ?? 0.0
-                selectedPeaking.append(PEQBand(type: .peaking, frequency: fb, gain: min(max(gain, gainMin), gainMax), q: 1.1))
-            }
+        for (idx, mag) in selectedPairs.prefix(numPeaking) {
+            let f0 = min(max(freqs[idx], 30.0), 14000.0)
+            let gain = min(max(mag, gainMin), gainMax)
+            let q = estimateQFromBandwidth(freqs: freqs, curve: residual, peakIndex: idx)
+            selectedPeaking.append(PEQBand(type: .peaking, frequency: f0, gain: gain, q: q))
         }
 
         selectedPeaking.sort { $0.frequency < $1.frequency }
@@ -221,8 +173,13 @@ public enum PEQOptimizer {
             let bands = unpack(p)
             let pred = Biquad.peqResponseDb(bands: bands, freqs: freqs, fs: fs)
             var r = [Double](repeating: 0.0, count: freqs.count)
+            // soft_l1 (f_scale=2.5), matching scipy.optimize.least_squares in the Python sibling.
+            // IRLS form: r / (1 + (r/f_scale)^2)^0.25 downweights 10 kHz+ measurement spikes.
+            let fScale = 2.5
             for i in 0..<freqs.count {
-                r[i] = (pred[i] - delta[i]) * weights[i]
+                let raw = (pred[i] - delta[i]) * weights[i]
+                let z = (raw / fScale) * (raw / fScale)
+                r[i] = raw / pow(1.0 + z, 0.25)
             }
 
             // Regularization penalties
@@ -264,86 +221,95 @@ public enum PEQOptimizer {
             return s
         }
 
-        // Levenberg-Marquardt Loop
-        var currentRes = computeResidual(x)
-        var currentCost = sumSquared(currentRes)
-        var lambda = 1e-2
-
         let eps = 1e-4
 
-        for _ in 0..<maxIterations {
-            let m = currentRes.count
-            let n = numParams
+        func runLM(iterations: Int) {
+            var currentRes = computeResidual(x)
+            var currentCost = sumSquared(currentRes)
+            var lambda = 1e-2
 
-            // Compute Jacobian J (m x n)
-            var J = [Double](repeating: 0.0, count: m * n)
-            for j in 0..<n {
-                var xPerturbed = x
-                let step = max(abs(x[j]) * eps, eps)
-                xPerturbed[j] += step
-                let resPerturbed = computeResidual(xPerturbed)
-                for i in 0..<m {
-                    J[i * n + j] = (resPerturbed[i] - currentRes[i]) / step
-                }
-            }
+            for _ in 0..<iterations {
+                let m = currentRes.count
+                let n = numParams
 
-            // Compute J^T * J (n x n) and g = -J^T * r (n)
-            var JtJ = [Double](repeating: 0.0, count: n * n)
-            var g = [Double](repeating: 0.0, count: n)
-
-            for j1 in 0..<n {
-                var sumG = 0.0
-                for i in 0..<m {
-                    sumG += J[i * n + j1] * currentRes[i]
-                }
-                g[j1] = -sumG
-
-                for j2 in j1..<n {
-                    var sumJtJ = 0.0
+                var J = [Double](repeating: 0.0, count: m * n)
+                for j in 0..<n {
+                    var xPerturbed = x
+                    let step = max(abs(x[j]) * eps, eps)
+                    xPerturbed[j] += step
+                    let resPerturbed = computeResidual(xPerturbed)
                     for i in 0..<m {
-                        sumJtJ += J[i * n + j1] * J[i * n + j2]
+                        J[i * n + j] = (resPerturbed[i] - currentRes[i]) / step
                     }
-                    JtJ[j1 * n + j2] = sumJtJ
-                    JtJ[j2 * n + j1] = sumJtJ
                 }
-            }
 
-            // Add damping: (J^T J + lambda * I) delta = g
-            var A = JtJ
-            for j in 0..<n {
-                A[j * n + j] += lambda * max(JtJ[j * n + j], 1e-3)
-            }
+                var JtJ = [Double](repeating: 0.0, count: n * n)
+                var g = [Double](repeating: 0.0, count: n)
 
-            // Solve linear system A * delta = g using Gaussian elimination with partial pivoting
-            guard let deltaP = solveLinearSystem(A: A, b: g, n: n) else {
-                lambda *= 10.0
-                continue
-            }
+                for j1 in 0..<n {
+                    var sumG = 0.0
+                    for i in 0..<m {
+                        sumG += J[i * n + j1] * currentRes[i]
+                    }
+                    g[j1] = -sumG
 
-            var xCandidate = x
-            for j in 0..<n {
-                xCandidate[j] += deltaP[j]
-            }
-            clampParams(&xCandidate)
-
-            let candidateRes = computeResidual(xCandidate)
-            let candidateCost = sumSquared(candidateRes)
-
-            if candidateCost < currentCost {
-                x = xCandidate
-                currentRes = candidateRes
-                currentCost = candidateCost
-                lambda = max(lambda / 5.0, 1e-6)
-                if abs(currentCost - candidateCost) < 1e-4 {
-                    break
+                    for j2 in j1..<n {
+                        var sumJtJ = 0.0
+                        for i in 0..<m {
+                            sumJtJ += J[i * n + j1] * J[i * n + j2]
+                        }
+                        JtJ[j1 * n + j2] = sumJtJ
+                        JtJ[j2 * n + j1] = sumJtJ
+                    }
                 }
-            } else {
-                lambda = min(lambda * 5.0, 1e5)
+
+                var A = JtJ
+                for j in 0..<n {
+                    A[j * n + j] += lambda * max(JtJ[j * n + j], 1e-3)
+                }
+
+                guard let deltaP = solveLinearSystem(A: A, b: g, n: n) else {
+                    lambda *= 10.0
+                    continue
+                }
+
+                var xCandidate = x
+                for j in 0..<n {
+                    xCandidate[j] += deltaP[j]
+                }
+                clampParams(&xCandidate)
+
+                let candidateRes = computeResidual(xCandidate)
+                let candidateCost = sumSquared(candidateRes)
+
+                if candidateCost < currentCost {
+                    let improvement = currentCost - candidateCost
+                    x = xCandidate
+                    currentRes = candidateRes
+                    currentCost = candidateCost
+                    lambda = max(lambda / 5.0, 1e-6)
+                    if improvement < 1e-8 * max(currentCost, 1.0) {
+                        break
+                    }
+                } else {
+                    lambda = min(lambda * 5.0, 1e5)
+                }
             }
         }
 
-        // Post process separation and format
+        runLM(iterations: maxIterations)
+
         var fittedBands = unpack(x)
+        enforcePeakingSeparation(&fittedBands)
+        for (i, b) in fittedBands.enumerated() {
+            x[3 * i + 0] = b.gain
+            x[3 * i + 1] = log10(max(b.frequency, 10.0))
+            x[3 * i + 2] = log10(max(b.q, 0.1))
+        }
+        clampParams(&x)
+        runLM(iterations: max(20, maxIterations / 3))
+
+        fittedBands = unpack(x)
         enforcePeakingSeparation(&fittedBands)
 
         // Final RMSE against unweighted delta
@@ -367,6 +333,136 @@ public enum PEQOptimizer {
         }
 
         return (roundedBands, rmse)
+    }
+
+    /// Residual extrema for peaking seeds: plateau-tolerant, octave-separated, low-band capped.
+    static func findResidualExtrema(
+        freqs: [Double],
+        residual: [Double],
+        nPeaks: Int,
+        existingFreqs: [Double],
+        preferRegions: [(Double, Double)]?,
+        fLo: Double? = nil,
+        fHi: Double? = nil
+    ) -> [(Int, Double)] {
+        let n = residual.count
+        var candidates: [(score: Double, index: Int, mag: Double)] = []
+
+        for i in 1..<(n - 1) {
+            let f = freqs[i]
+            if let fLo, f < fLo { continue }
+            if let fHi, f > fHi { continue }
+            let r = residual[i]
+            let isMax = residual[i] >= residual[i - 1] && residual[i] >= residual[i + 1]
+            let isMin = residual[i] <= residual[i - 1] && residual[i] <= residual[i + 1]
+            if !(isMax || isMin) { continue }
+            if abs(r) < 0.25 { continue }
+
+            var score = abs(r)
+            if f > 12000.0 {
+                score *= 0.45
+            } else if f > 10000.0 {
+                score *= 0.70
+            } else if f < 40.0 {
+                score *= 0.65
+            }
+            if let regions = preferRegions {
+                for (prLo, prHi) in regions where f >= prLo && f <= prHi {
+                    score *= 1.28
+                    break
+                }
+            }
+            candidates.append((score, i, r))
+        }
+
+        candidates.sort { $0.score > $1.score }
+
+        var selected: [(Int, Double)] = []
+        var selectedFreqs = existingFreqs
+        var lowCount = selectedFreqs.filter { $0 < 300.0 }.count
+
+        for item in candidates {
+            if selected.count >= nPeaks { break }
+            let f = freqs[item.index]
+            if selectedFreqs.contains(where: { octaveDistance($0, f) < minOctaveSep }) { continue }
+            if f < 300.0 && lowCount >= maxLowPeaking { continue }
+            selected.append((item.index, item.mag))
+            selectedFreqs.append(f)
+            if f < 300.0 { lowCount += 1 }
+        }
+
+        if selected.count < nPeaks {
+            let gLo = max(fLo ?? 80.0, 30.0)
+            let gHi = min(fHi ?? 10000.0, 12000.0)
+            if gHi > gLo {
+                let gridCount = max(nPeaks * 4, 8)
+                let logLo = log10(gLo)
+                let logHi = log10(gHi)
+                for k in 0..<gridCount {
+                    if selected.count >= nPeaks { break }
+                    let t = Double(k) / Double(max(gridCount - 1, 1))
+                    let f = pow(10.0, logLo + t * (logHi - logLo))
+                    if selectedFreqs.contains(where: { octaveDistance($0, f) < minOctaveSep }) { continue }
+                    if f < 300.0 && lowCount >= maxLowPeaking { continue }
+                    var bestIdx = 0
+                    var bestDiff = Double.infinity
+                    for i in 0..<freqs.count {
+                        let d = abs(freqs[i] - f)
+                        if d < bestDiff {
+                            bestDiff = d
+                            bestIdx = i
+                        }
+                    }
+                    selected.append((bestIdx, residual[bestIdx]))
+                    selectedFreqs.append(freqs[bestIdx])
+                    if f < 300.0 { lowCount += 1 }
+                }
+            }
+        }
+
+        return Array(selected.prefix(nPeaks))
+    }
+
+    /// Estimate peaking Q from local -3 dB (or 50% for small peaks) bandwidth.
+    static func estimateQFromBandwidth(freqs: [Double], curve: [Double], peakIndex: Int) -> Double {
+        let n = curve.count
+        let idx = min(max(peakIndex, 0), n - 1)
+        let f0 = freqs[idx]
+        let peakVal = curve[idx]
+        if abs(peakVal) < 0.35 {
+            return 1.1
+        }
+
+        let thr = abs(peakVal) >= 3.0 ? (peakVal - 3.0 * (peakVal >= 0 ? 1.0 : -1.0)) : peakVal * 0.5
+
+        func sideBoundary(direction: Int) -> Double {
+            var i = idx
+            while i > 0 && i < n - 1 {
+                let j = i + direction
+                let y0 = curve[i]
+                let y1 = curve[j]
+                let crossed = (peakVal > 0 && y1 <= thr) || (peakVal < 0 && y1 >= thr)
+                if crossed {
+                    if abs(y1 - y0) < 1e-12 {
+                        return freqs[j]
+                    }
+                    let t = min(max((thr - y0) / (y1 - y0), 0.0), 1.0)
+                    return freqs[i] + t * (freqs[j] - freqs[i])
+                }
+                i = j
+            }
+            return direction < 0 ? freqs[0] : freqs[n - 1]
+        }
+
+        let fLeft = sideBoundary(direction: -1)
+        let fRight = sideBoundary(direction: 1)
+        let bw = max(fRight - fLeft, f0 * 1e-3)
+        var q = f0 / bw
+        q = min(max(q, qPeakMin), qPeakMax)
+        if q > 2.8 {
+            q = 2.8 + 0.45 * (q - 2.8)
+        }
+        return min(max(q, qPeakMin), qPeakMax)
     }
 
     public static func enforcePeakingSeparation(_ bands: inout [PEQBand]) {

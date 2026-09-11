@@ -2,6 +2,11 @@
 
 **Make one headphone sound like another** — An Apple native rewrite using **Swift 5.9+ / SwiftUI / CoreAudio / Accelerate DSP** based on the [AutoEq](https://github.com/jaakkopasanen/AutoEq) database and [CamillaDSP](https://github.com/HEnquist/camilladsp).
 
+> [!NOTE]
+> **Version & Platform Notice**:
+> - **v1.1.x (Swift Native Edition)**: Exclusively designed for **macOS only** (Apple Silicon & Intel, macOS 13.0+), delivering maximum performance, hardware-accelerated DSP, and zero runtime dependencies.
+> - **v1.0.x (Python Edition)**: Cross-platform edition available for **Windows, Linux, and macOS** via Python runtime.
+
 **Languages:** [English](README.md) · [中文说明](README.zh-CN.md)
 
 ---
