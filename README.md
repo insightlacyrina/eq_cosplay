@@ -2,6 +2,11 @@
 
 **Make one pair of headphones sound like another** — using frequency-response data from [AutoEq](https://github.com/jaakkopasanen/AutoEq), a fixed **10-band parametric EQ**, optional **minimum-phase FIR** residual correction, and real-time playback through [CamillaDSP](https://github.com/HEnquist/camilladsp).
 
+> [!NOTE]
+> **Version and Platform Compatibility**:
+> - **v1.1.x (Native Swift Version)**: Exclusively built for **macOS** (Apple Silicon & Intel, macOS 13.0+), delivering native hardware acceleration, ultra-low latency, and zero external runtime dependencies (see the `swift` branch).
+> - **v1.0.x (Python Version)**: **Cross-platform version**, supporting **Windows / Linux / macOS** environments.
+
 **Languages / 语言:** [English](README.md) · [中文说明](README.zh-CN.md)
 
 > Short blurb for GitHub **About**:  
@@ -49,8 +54,8 @@ xattr -dr com.apple.quarantine .
 
 ## Overview
 
-| You wear (Source) | You want (Target) | Tool output |
-|-------------------|-------------------|-------------|
+| Current Headphone (Source) | Target Headphone (Target) | Tool output |
+|----------------------------|---------------------------|-------------|
 | e.g. Sony WH-1000XM4 | e.g. AKG Q701 | IIR PEQ (± FIR) so Source ≈ Target on-axis FR |
 
 **Pipeline**
@@ -192,8 +197,8 @@ python cosplay_gui.py              # GUI
 ```text
 eq_cosplay/
 ├── cosplay.py           # Core: AutoEq, PEQ/FIR, CamillaDSP YAML & process control
-├── cosplay_gui.py       # Tkinter frontend (EchoCR visual language)
-├── theme.py             # Dark theme, FangXinShu + JetBrains Mono
+├── cosplay_gui.py       # Tkinter frontend
+├── theme.py             # Dark theme and design specs
 ├── menubar_macos.py     # macOS status-bar extra for local presets
 ├── assets/              # Fonts and icons
 ├── eq_cosplay.spec      # PyInstaller spec (app / exe)

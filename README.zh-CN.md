@@ -2,6 +2,11 @@
 
 **让一副耳机“扮演”另一副耳机的听感** — 基于 [AutoEq](https://github.com/jaakkopasanen/AutoEq) 频响数据，生成固定 **10 段参数均衡（IIR PEQ）**，必要时叠加 **最小相位 FIR 残差**，并通过 [CamillaDSP](https://github.com/HEnquist/camilladsp) 实时播放。
 
+> [!NOTE]
+> **版本与适用平台说明**:
+> - **v1.1.x（Swift 原生版本）**：专为 **macOS 系统独占打造**（完美支持 Apple Silicon 与 Intel 芯片，macOS 13.0+），提供极致硬件加速性能、低延迟与零外部运行环境依赖（见 `swift` 分支）。
+> - **v1.0.x（Python 原版）**：**多平台版本**，支持 **Windows / Linux / macOS** 等跨平台环境运行。
+
 **Languages / 语言:** [English](README.md) · [中文说明](README.zh-CN.md)
 
 > GitHub **About** 可用短描述：  
@@ -49,8 +54,8 @@ xattr -dr com.apple.quarantine .
 
 ## 能做什么
 
-| 当前佩戴（Source） | 想要的听感（Target） | 输出 |
-|--------------------|----------------------|------|
+| 当前佩戴耳机 (Source) | 想要模仿耳机 (Target) | 输出 |
+|----------------------|----------------------|------|
 | 例如 Sony WH-1000XM4 | 例如 AKG Q701 | IIR PEQ（± FIR），使 Source 频响接近 Target |
 
 **处理流程**
@@ -115,8 +120,6 @@ macOS 上会在屏幕右上角状态栏放一个 **EQ** 图标。点击可：
 - 停止引擎或退出
 
 关闭主窗口**不会退出**，引擎继续跑，图标留在状态栏。要从状态栏选「退出 EQ Cosplay」，或按 Cmd-Q。
-
-图形界面视觉（深色面板、金色方标、青绿主按钮、日志等宽字体）对齐本机 EchoCR 声骸台：界面字体为方心书，日志为 JetBrains Mono。
 
 ### 启动方式
 
@@ -196,8 +199,8 @@ GUI 中若启用了 FIR，可在绿色 FIR 提示下方使用 **「停止 FIR」
 ```text
 eq_cosplay/
 ├── cosplay.py           # 核心：AutoEq、PEQ/FIR、CamillaDSP
-├── cosplay_gui.py       # Tkinter 界面（EchoCR 视觉）
-├── theme.py             # 深色主题、方心书 + JetBrains Mono
+├── cosplay_gui.py       # Tkinter 界面
+├── theme.py             # 深色主题与视觉规范
 ├── menubar_macos.py     # macOS 状态栏切换本机方案
 ├── assets/              # 字体与图标
 ├── eq_cosplay.spec      # PyInstaller 打包
