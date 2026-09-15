@@ -22,8 +22,8 @@
    - 内置阻尼高斯-牛顿 / Levenberg-Marquardt 非线性最小二乘优化算法，联合优化 **10 段 IIR PEQ（1 Lowshelf + 8 Peaking + 1 Highshelf）**，收敛耗时仅需数十毫秒。
    - 32-bit Float 单声道 WAV 文件格式写入器，原生对接 CamillaDSP `Conv` 滤波器。
 
-3. **EchoCR 声骸台视觉设计**：
-   - 深度复刻 EchoCR 深色面板美学（面板 `#12161d`、高亮金 `#d4a24a`、薄荷青 `#5eead4`、翡翠绿 `#34d399`、柔红 `#f87171`）。
+3. **现代化深色质感界面设计**：
+   - 沉浸式深色质感面板与流体半透明微拟物视觉，层级分明，视觉清晰优雅。
    - 高清对数频率坐标 Canvas 矢量绘图引擎，支持 20 Hz – 20,000 Hz 平滑曲线渲染，具备鼠标悬停十字准星与动态频点/分贝指示浮标。
 
 4. **双模运行与菜单栏常驻**：
@@ -86,7 +86,7 @@ eq_cosplay_swift/
 │   │   ├── Audio/                    # CoreAudio 设备枚举、BlackHole 检测
 │   │   ├── Engine/                   # CamillaDSP YAML 生成、进程管道监控、预设管理
 │   │   ├── Localization/             # 中/英/日动态国际化词库
-│   │   └── Models/                   # 领域实体与 EchoCRTheme 视觉规范
+│   │   └── Models/                   # 领域实体与主题视觉规范
 │   ├── EQCosplayApp/                 # 原生 SwiftUI 界面与菜单栏
 │   │   ├── AppState.swift            # 核心响应式状态机
 │   │   ├── EQCosplayApp.swift        # 主程序入口与 MenuBarExtra

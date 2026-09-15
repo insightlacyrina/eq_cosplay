@@ -18,7 +18,7 @@
   - Leverages Apple's `Accelerate (vDSP)` framework for real cepstrum minimum-phase reconstruction (**8192-tap FIR residual**).
   - High-performance Levenberg-Marquardt non-linear optimizer fitting **10-band IIR PEQ (1 Lowshelf + 8 Peaking + 1 Highshelf)** in milliseconds.
   - Native 32-bit Float mono WAV generator for CamillaDSP `Conv`.
-- **EchoCR Visual Identity**: Sleek dark panel styling (`#12161d` panels, `#5eead4` teal primary, `#d4a24a` gold accents, `#34d399` emerald).
+- **Modern Dark UI Design**: Sleek dark panel styling (`#12161d` panels, `#5eead4` teal primary, `#d4a24a` gold accents, `#34d399` emerald) with refined liquid glass aesthetics.
 - **Interactive Log-Frequency Canvas**: 20 Hz – 20,000 Hz vector rendering with hover crosshair and real-time frequency & dB readout.
 - **MenuBar Extra**: Status bar item keeps the CamillaDSP engine active when the main window is closed, offering instant preset switching and engine controls.
 - **Seamless Ecosystem Compatibility**: Automatically recognizes and loads existing presets from the desktop `eq_cosplay/presets` directory.
