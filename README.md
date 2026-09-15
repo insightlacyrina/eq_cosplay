@@ -11,6 +11,14 @@
 
 ---
 
+## 🎧 Overview
+
+| Current Headphone (Source) | Target Headphone (Target) | Tool Output |
+|----------------------------|---------------------------|-------------|
+| e.g. Sony WH-1000XM4 | e.g. AKG Q701 | 10-band IIR PEQ + min-phase FIR residual to precisely match Source to Target |
+
+---
+
 ## 🌟 Key Highlights
 
 - **100% Apple Native**: Zero Python runtime or Tkinter dependencies. Compiled to native Mach-O binary with instant launch and minimal memory footprint.
