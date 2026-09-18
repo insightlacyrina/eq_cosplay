@@ -48,6 +48,7 @@ logs/
 
 # Optional offline measurement dumps (may be large / redistributable under separate terms)
 offline_csvs/
+.csv_cache/
 
 # Legacy root-level generated configs (if any remain locally)
 cosplay_config.yml

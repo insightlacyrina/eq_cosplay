@@ -1,43 +1,57 @@
 #!/usr/bin/env python3
-"""EchoCR visual language for the EQ Cosplay Tk GUI.
+"""EchoCR & Liquid Glass visual language for the EQ Cosplay Tk GUI.
 
-Colors, type, and component chrome are taken from EchoCR's `web/app.css`
-(dark panel UI, gold mark, teal primary, JetBrains Mono logs).
+Matches the visual style, color palette, and component design of eq_cosplay_swift
+(ultra-dark panel UI, Liquid Glass cards, gold/teal/emerald accents, JetBrains Mono logs).
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
-from tkinter import Canvas, TclError
+from tkinter import Canvas, Frame, TclError
 from tkinter import font as tkfont
 
-# EchoCR :root tokens
-BG = "#0b0d11"
-PANEL = "#12161d"
-LINE = "#2a3340"
-TEXT = "#e8edf4"
-MUTED = "#8b97a8"
-GOLD = "#d4a24a"
-TEAL = "#5eead4"
-ROSE = "#f87171"
-OK = "#34d399"
-SLOT = "#1a212c"
-INPUT = "#0e1319"
-BTN = "#1c232e"
-PRIMARY_BG = "#12352f"
-PRIMARY_LINE = "#2d6a62"
-GOLD_BG = "#2a210f"
-LOG_BG = "#0a0d11"
-LOG_FG = "#c5d0dc"
+# EchoCR & Swift Design Tokens (1:1 with EchoCRTheme.swift)
+BG = "#0b0d11"              # Base window background
+PANEL = "#12161d"           # Card surface fill
+PANEL_GLASS = "#161b24"     # Elevated card surface
+BORDER = "#2a3340"          # Base specular rim border
+LINE = "#2a3340"            # Separators and table borders
+BORDER_SPECULAR = "#3d4b5c" # Highlighted rim border
+BORDER_SUBTLE = "#1e2633"   # Subtle inner border
+TEXT = "#e8edf4"            # Primary text
+MUTED = "#8b97a8"           # Secondary muted text
+GOLD = "#d4a24a"            # Target curve accent & gold highlights
+TEAL = "#5eead4"            # Source curve accent & teal highlights
+EMERALD = "#34d399"         # Simulated curve & success indicators
+OK = "#34d399"              # Success indicator
+ROSE = "#f87171"            # Delta curve & error/warning indicators
+SLOT = "#1a212c"            # Slot and row alternate fill
+INPUT = "#0e1319"           # Input and search box background
+BTN = "#1c232e"             # Default button background
+BTN_HOVER = "#273140"       # Default button hover
+PRIMARY_BG = "#12352f"      # Primary prominent action background
+PRIMARY_LINE = "#2d6a62"    # Primary prominent action border
+PRIMARY_HOVER = "#18453d"   # Primary prominent action hover
+GOLD_BG = "#2a210f"         # Gold action background
+LOG_BG = "#0a0d11"          # Terminal log background
+LOG_FG = "#c5d0dc"          # Terminal log text
 GLOW_GOLD = "#d4a24a"
-PLOT_SRC = "#5eead4"
-PLOT_TGT = "#d4a24a"
-PLOT_SIM = "#34d399"
-PLOT_GRID = "#2a3340"
-PLOT_FACE = "#0e1319"
+
+# Plot Specific Tokens (matching FrequencyResponsePlotView.swift)
+PLOT_FACE = "#0e1319"       # Canvas face
+PLOT_GRID = "#1a222d"       # Grid lines
+PLOT_SRC = "#8b97a8"        # Source curve (dim white / secondary)
+PLOT_TGT = "#e8edf4"        # Target curve (pure white)
+PLOT_SIM = "#34d399"        # Simulated curve (emerald)
+PLOT_DELTA = "#f87171"      # Delta curve (rose)
 
 UI_FAMILY_CANDIDATES = (
+    ".AppleSystemUIFont",
+    "SF Pro Display",
+    "PingFang SC",
+    "Helvetica Neue",
     "AR FangXinShuH7GBK HV",
     "AR FangXinShuH7GBK",
     "FangXinShu",
@@ -46,6 +60,8 @@ MONO_FAMILY_CANDIDATES = (
     "JetBrains Mono",
     "JetBrains Mono Regular",
     "JetBrainsMono-Regular",
+    "Menlo",
+    "SF Mono",
 )
 
 _FONTS_REGISTERED = False
@@ -168,7 +184,6 @@ def _pick_family(root, candidates: tuple[str, ...], fallback: str) -> str:
     for name in candidates:
         if name in available:
             return name
-    # Tk on some platforms reports slightly different names
     lower = {n.lower(): n for n in available}
     for name in candidates:
         hit = lower.get(name.lower())
@@ -202,21 +217,68 @@ def mono_family() -> str:
     return _MONO_FAMILY or MONO_FAMILY_CANDIDATES[0]
 
 
+def make_glass_frame(parent, padding: int = 10, **kwargs) -> Frame:
+    """Create a Frame styled with Liquid Glass aesthetics (panel background, subtle rim border)."""
+    frame = Frame(
+        parent,
+        bg=PANEL,
+        highlightthickness=1,
+        highlightbackground=BORDER,
+        highlightcolor=BORDER_SPECULAR,
+        padx=padding,
+        pady=padding,
+        **kwargs,
+    )
+    return frame
+
+
+def draw_rounded_rect(
+    canvas: Canvas,
+    x1: float,
+    y1: float,
+    x2: float,
+    y2: float,
+    radius: float = 8,
+    **kwargs,
+) -> int:
+    """Draw a smooth rounded polygon on a Tk Canvas."""
+    r = min(radius, (x2 - x1) / 2, (y2 - y1) / 2)
+    points = [
+        x1 + r, y1,
+        x2 - r, y1,
+        x2, y1,
+        x2, y1 + r,
+        x2, y2 - r,
+        x2, y2,
+        x2 - r, y2,
+        x1 + r, y2,
+        x1, y2,
+        x1, y2 - r,
+        x1, y1 + r,
+        x1, y1,
+    ]
+    return canvas.create_polygon(points, smooth=True, **kwargs)
+
+
 def apply(root) -> dict:
-    """Paint the EchoCR dark theme onto a Tk root. Returns font/color handles."""
+    """Paint the EchoCR Liquid Glass dark theme onto a Tk root."""
     from tkinter import ttk
 
     resolve_families(root)
     ui = ui_family()
     mono = mono_family()
-    # FangXinShu Heavy reads large at CSS-equivalent sizes; keep 2pt below EchoCR.
+
+    ui14 = (ui, 14)
+    ui13 = (ui, 13)
     ui12 = (ui, 12)
     ui11 = (ui, 11)
     ui10 = (ui, 10)
     ui9 = (ui, 9)
-    title = (ui, 18)
-    mark_font = (ui, 14, "bold")
+    title = (ui, 13, "bold")
+    mark_font = (ui, 13, "bold")
+    mono11 = (mono, 11)
     mono10 = (mono, 10)
+    mono9 = (mono, 9)
 
     try:
         root.configure(bg=BG)
@@ -247,41 +309,48 @@ def apply(root) -> dict:
     except TclError:
         pass
 
-    style.configure(".", background=BG, foreground=TEXT, font=ui12, bordercolor=LINE)
+    style.configure(".", background=BG, foreground=TEXT, font=ui12, bordercolor=BORDER)
     style.configure("TFrame", background=BG)
     style.configure("Panel.TFrame", background=PANEL)
+    style.configure("Glass.TFrame", background=PANEL)
     style.configure("Top.TFrame", background=BG)
+
     style.configure("TLabel", background=BG, foreground=TEXT, font=ui12)
+    style.configure("Panel.TLabel", background=PANEL, foreground=TEXT, font=ui12)
     style.configure("Muted.TLabel", background=BG, foreground=MUTED, font=ui10)
+    style.configure("PanelMuted.TLabel", background=PANEL, foreground=MUTED, font=ui10)
     style.configure("Title.TLabel", background=BG, foreground=TEXT, font=title)
+    style.configure("Section.TLabel", background=BG, foreground=MUTED, font=ui11)
     style.configure("Gold.TLabel", background=BG, foreground=GOLD, font=ui11)
     style.configure("Teal.TLabel", background=BG, foreground=TEAL, font=ui11)
     style.configure("Ok.TLabel", background=BG, foreground=OK, font=ui11)
     style.configure("Rose.TLabel", background=BG, foreground=ROSE, font=ui11)
+
+    # Status pills (matching Liquid Glass status badge)
     style.configure(
         "Pill.TLabel",
         background=SLOT,
         foreground=MUTED,
         font=ui10,
-        padding=(8, 3),
-        bordercolor=LINE,
+        padding=(10, 4),
+        bordercolor=BORDER,
         relief="solid",
     )
     style.configure(
         "PillOn.TLabel",
-        background="#0f1f16",
+        background="#0c231c",
         foreground=OK,
         font=ui10,
-        padding=(8, 3),
-        bordercolor="#14532d",
+        padding=(10, 4),
+        bordercolor="#1b4d3e",
         relief="solid",
     )
     style.configure(
         "PillOff.TLabel",
-        background="#1a1010",
+        background="#1c1111",
         foreground=ROSE,
         font=ui10,
-        padding=(8, 3),
+        padding=(10, 4),
         bordercolor="#4a1f1f",
         relief="solid",
     )
@@ -290,26 +359,27 @@ def apply(root) -> dict:
         "TLabelframe",
         background=PANEL,
         foreground=TEXT,
-        bordercolor=LINE,
+        bordercolor=BORDER,
         relief="solid",
         padding=8,
     )
     style.configure(
         "TLabelframe.Label",
         background=PANEL,
-        foreground=GOLD,
+        foreground=TEXT,
         font=ui11,
     )
 
+    # Buttons
     style.configure(
         "TButton",
         background=BTN,
         foreground=TEXT,
-        bordercolor=LINE,
+        bordercolor=BORDER,
         darkcolor=BTN,
         lightcolor=BTN,
         focusthickness=0,
-        padding=(10, 5),
+        padding=(12, 6),
         font=ui11,
         relief="flat",
         wraplength=0,
@@ -317,10 +387,12 @@ def apply(root) -> dict:
     )
     style.map(
         "TButton",
-        background=[("disabled", PANEL), ("pressed", SLOT), ("active", "#252d3a")],
+        background=[("disabled", PANEL), ("pressed", SLOT), ("active", BTN_HOVER)],
         foreground=[("disabled", MUTED)],
-        bordercolor=[("disabled", LINE), ("active", "#4b5870"), ("pressed", "#4b5870")],
+        bordercolor=[("disabled", BORDER_SUBTLE), ("active", BORDER_SPECULAR), ("pressed", BORDER_SPECULAR)],
     )
+
+    # Primary Prominent Button (e.g. Deploy to CamillaDSP)
     style.configure(
         "Primary.TButton",
         background=PRIMARY_BG,
@@ -328,17 +400,19 @@ def apply(root) -> dict:
         bordercolor=PRIMARY_LINE,
         darkcolor=PRIMARY_BG,
         lightcolor=PRIMARY_BG,
-        padding=(10, 5),
+        padding=(14, 6),
         font=ui11,
         wraplength=0,
         justify="center",
     )
     style.map(
         "Primary.TButton",
-        background=[("disabled", PANEL), ("pressed", "#0c2924"), ("active", "#16443c")],
+        background=[("disabled", PANEL), ("pressed", "#0b2420"), ("active", PRIMARY_HOVER)],
         foreground=[("disabled", MUTED), ("active", TEAL)],
-        bordercolor=[("disabled", LINE), ("active", TEAL)],
+        bordercolor=[("disabled", BORDER_SUBTLE), ("active", TEAL)],
     )
+
+    # Gold Button
     style.configure(
         "Gold.TButton",
         background=GOLD_BG,
@@ -346,7 +420,7 @@ def apply(root) -> dict:
         bordercolor=GOLD,
         darkcolor=GOLD_BG,
         lightcolor=GOLD_BG,
-        padding=(10, 5),
+        padding=(12, 6),
         font=ui11,
         wraplength=0,
         justify="center",
@@ -355,13 +429,15 @@ def apply(root) -> dict:
         "Gold.TButton",
         background=[("disabled", PANEL), ("pressed", "#1c160a"), ("active", "#3a2d14")],
         foreground=[("disabled", MUTED), ("active", GOLD)],
-        bordercolor=[("disabled", LINE), ("active", GOLD)],
+        bordercolor=[("disabled", BORDER_SUBTLE), ("active", GOLD)],
     )
+
+    # Ghost Button
     style.configure(
         "Ghost.TButton",
         background=BG,
         foreground=TEXT,
-        bordercolor=LINE,
+        bordercolor=BORDER,
         darkcolor=BG,
         lightcolor=BG,
         padding=(10, 5),
@@ -373,139 +449,115 @@ def apply(root) -> dict:
         "Ghost.TButton",
         background=[("disabled", BG), ("pressed", SLOT), ("active", SLOT)],
         foreground=[("disabled", MUTED)],
-        bordercolor=[("active", "#4b5870")],
+        bordercolor=[("active", BORDER_SPECULAR)],
     )
 
+    # Entry & Combobox
     style.configure(
         "TEntry",
         fieldbackground=INPUT,
         foreground=TEXT,
-        bordercolor=LINE,
-        lightcolor=LINE,
-        darkcolor=LINE,
+        bordercolor=BORDER,
+        lightcolor=BORDER,
+        darkcolor=BORDER,
         insertcolor=TEXT,
-        padding=4,
+        padding=5,
         font=ui11,
     )
     style.map(
         "TEntry",
         fieldbackground=[("disabled", SLOT), ("readonly", INPUT)],
         foreground=[("disabled", MUTED)],
-        bordercolor=[("focus", TEAL)],
+        bordercolor=[("focus", TEAL), ("active", BORDER_SPECULAR)],
     )
+
     style.configure(
         "TCombobox",
         fieldbackground=INPUT,
         background=INPUT,
         foreground=TEXT,
-        bordercolor=LINE,
+        bordercolor=BORDER,
         arrowcolor=MUTED,
-        lightcolor=LINE,
-        darkcolor=LINE,
-        padding=4,
+        lightcolor=BORDER,
+        darkcolor=BORDER,
+        padding=5,
         font=ui11,
     )
     style.map(
         "TCombobox",
         fieldbackground=[("readonly", INPUT), ("disabled", SLOT)],
         foreground=[("disabled", MUTED)],
-        bordercolor=[("focus", TEAL), ("active", "#4b5870")],
-        arrowcolor=[("active", GOLD)],
+        bordercolor=[("focus", TEAL), ("active", BORDER_SPECULAR)],
+        arrowcolor=[("active", TEXT)],
     )
-    style.configure(
-        "TCheckbutton",
-        background=BG,
-        foreground=TEXT,
-        font=ui11,
-        indicatorcolor=INPUT,
-        indicatorbackground=INPUT,
-        padding=3,
-    )
-    style.map(
-        "TCheckbutton",
-        background=[("active", BG)],
-        foreground=[("disabled", MUTED)],
-        indicatorcolor=[("selected", TEAL), ("!selected", INPUT)],
-    )
-    style.configure(
-        "TRadiobutton",
-        background=PANEL,
-        foreground=TEXT,
-        font=ui11,
-        indicatorcolor=INPUT,
-        padding=2,
-    )
-    style.map(
-        "TRadiobutton",
-        background=[("active", PANEL)],
-        foreground=[("disabled", MUTED)],
-        indicatorcolor=[("selected", GOLD), ("!selected", INPUT)],
-    )
+
+    # Treeview
     style.configure(
         "Treeview",
         background=SLOT,
         fieldbackground=SLOT,
         foreground=TEXT,
-        bordercolor=LINE,
-        lightcolor=LINE,
-        darkcolor=LINE,
-        rowheight=22,
-        font=ui10,
+        bordercolor=BORDER,
+        lightcolor=BORDER,
+        darkcolor=BORDER,
+        rowheight=24,
+        font=mono10,
     )
     style.configure(
         "Treeview.Heading",
         background=PANEL,
-        foreground=GOLD,
-        bordercolor=LINE,
+        foreground=MUTED,
+        bordercolor=BORDER,
         relief="flat",
         font=ui10,
-        padding=3,
+        padding=4,
     )
     style.map(
         "Treeview",
-        background=[("selected", GOLD_BG)],
-        foreground=[("selected", GOLD)],
+        background=[("selected", "#222d3d")],
+        foreground=[("selected", TEXT)],
     )
     style.map(
         "Treeview.Heading",
         background=[("active", SLOT)],
-        foreground=[("active", GOLD)],
+        foreground=[("active", TEXT)],
     )
+
+    # Scrollbar
     style.configure(
         "TScrollbar",
         background=SLOT,
         troughcolor=BG,
-        bordercolor=LINE,
+        bordercolor=BORDER,
         arrowcolor=MUTED,
         darkcolor=SLOT,
         lightcolor=SLOT,
     )
     style.map(
         "TScrollbar",
-        background=[("active", "#2a3340")],
-        arrowcolor=[("active", GOLD)],
+        background=[("active", BORDER)],
+        arrowcolor=[("active", TEXT)],
     )
-    style.configure("TPanedwindow", background=BG)
-    style.configure("Sash", sashthickness=6, background=LINE)
 
     return {
         "ui": ui,
         "mono": mono,
-        "ui14": ui12,
-        "ui13": ui11,
+        "ui14": ui14,
+        "ui13": ui13,
         "ui12": ui12,
         "ui11": ui11,
         "ui10": ui10,
         "ui9": ui9,
         "title": title,
         "mark": mark_font,
-        "mono12": mono10,
+        "mono11": mono11,
         "mono10": mono10,
+        "mono9": mono9,
         "style": style,
     }
 
 
-def make_mark(parent, text: str = "EQ", size: int = 36) -> Canvas:
+def make_mark(parent, text: str = "EQ", size: int = 32) -> Canvas:
     """Gold-bordered square mark, matching EchoCR `.mark`."""
     cv = Canvas(
         parent,
@@ -529,7 +581,7 @@ def make_mark(parent, text: str = "EQ", size: int = 36) -> Canvas:
         size / 2,
         text=text,
         fill=GOLD,
-        font=(ui_family(), max(11, size // 3), "bold"),
+        font=(ui_family(), max(10, size // 3), "bold"),
     )
     return cv
 
@@ -540,11 +592,11 @@ def style_log_widget(widget, mono_font) -> None:
             background=LOG_BG,
             foreground=LOG_FG,
             insertbackground=TEXT,
-            selectbackground=GOLD_BG,
-            selectforeground=GOLD,
+            selectbackground="#1e2c3d",
+            selectforeground=TEXT,
             highlightthickness=1,
-            highlightbackground=LINE,
-            highlightcolor=LINE,
+            highlightbackground=BORDER,
+            highlightcolor=BORDER_SPECULAR,
             relief="flat",
             borderwidth=0,
             font=mono_font,

@@ -1764,7 +1764,7 @@ def launch_camilladsp_session(config_path: Path, debug_mode: bool = False) -> bo
         dump_audio_device_list()
 
     localized_print('saved_presets_launch')
-    camilladsp_process, camilladsp_log_path = run_camilladsp(config_path, debug=debug_mode)
+    camilladsp_process, camilladsp_log_path = run_camilladsp(config_path, debug=debug_mode, open_log_window=True)
     if camilladsp_process is None:
         localized_print(
             'camilladsp_failed',
@@ -4279,7 +4279,11 @@ def terminate_camilladsp(process: subprocess.Popen, log_path: Path | None = None
             pass
 
 
-def run_camilladsp(config_path: Path, debug: bool = False) -> tuple[subprocess.Popen | None, Path | None]:
+def run_camilladsp(
+    config_path: Path,
+    debug: bool = False,
+    open_log_window: bool = False,
+) -> tuple[subprocess.Popen | None, Path | None]:
     """运行 CamillaDSP，日志写入文件并尽量在独立窗口展示。
 
     启动前检测并停止已有 CamillaDSP，保证同时仅一个实例。
@@ -4328,12 +4332,13 @@ def run_camilladsp(config_path: Path, debug: bool = False) -> tuple[subprocess.P
         )
         process._cosplay_log_fh = log_fh  # type: ignore[attr-defined]
 
-        window_ok = open_camilladsp_log_window(log_path)
-        if window_ok:
-            localized_print('camilladsp_log_window_opened', path=log_path)
-        else:
-            localized_print('camilladsp_log_window_failed', error='no terminal launcher')
-            localized_print('camilladsp_log_file_hint', path=log_path)
+        if open_log_window:
+            window_ok = open_camilladsp_log_window(log_path)
+            if window_ok:
+                localized_print('camilladsp_log_window_opened', path=log_path)
+            else:
+                localized_print('camilladsp_log_window_failed', error='no terminal launcher')
+                localized_print('camilladsp_log_file_hint', path=log_path)
             # 独立窗口失败时回退：从文件尾部跟随输出到主终端
             def _tail_log_to_main(path: Path, proc: subprocess.Popen) -> None:
                 prefix = translate('log_prefix')
