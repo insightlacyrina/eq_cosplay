@@ -20,7 +20,7 @@ swift build -c release --product eq-cosplay-cli
 BIN_DIR="$(swift build -c release --show-bin-path)"
 
 APP_NAME="EQ Cosplay.app"
-APP_VERSION="1.1.8"
+APP_VERSION="1.1.9"
 DIST_DIR="$SCRIPT_DIR/dist"
 APP_BUNDLE="$DIST_DIR/$APP_NAME"
 CONTENTS="$APP_BUNDLE/Contents"
@@ -118,9 +118,9 @@ cat << 'PLIST' > "$CONTENTS/Info.plist"
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleShortVersionString</key>
-    <string>1.1.8</string>
+    <string>1.1.9</string>
     <key>CFBundleVersion</key>
-    <string>1.1.8</string>
+    <string>1.1.9</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>NSHighResolutionCapable</key>
