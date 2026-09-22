@@ -2254,7 +2254,7 @@ PEQ_CRITICAL_RMS_DB = 2.2
 # 预处理 / FIR
 PEQ_ALIGN_BAND = (200.0, 2000.0)   # 电平对齐参考带
 PEQ_SMOOTH_OCTAVES = 1.0 / 6.0     # IIR 拟合用 1/6 oct 平滑
-FIR_SMOOTH_OCTAVES = 1.0 / 12.0    # FIR 目标轻平滑
+FIR_SMOOTH_OCTAVES = 1.0 / 48.0    # 约一格对数网格；1/12 oct 会把 9–11 kHz 顶点挪到声源谐振
 FIR_N_TAPS = 8192
 FIR_GAIN_CLIP_DB = 18.0
 FIR_RESIDUAL_TRIGGER_RMSE = 1.15   # IIR 后残差仍大则强制 FIR
@@ -2959,7 +2959,7 @@ def calculate_correction(
             'fir_precision_mode',
             regions=detail or (", ".join(large_names) if large_names else f"IIR residual RMSE {peq_rmse:.2f} dB"),
         )
-        # FIR 拟合对齐后残差，轻平滑抑制测量毛刺
+        # 1/12 oct 宽于 9–11 kHz 上约 0.14 oct 的峰谷间距，会把模拟顶点留在声源谐振上
         residual_target = smooth_curve_logf(grid_freqs, residual_vs_aligned, FIR_SMOOTH_OCTAVES)
         fir_ir = design_fir_from_mag_db(
             grid_freqs,
