@@ -441,6 +441,101 @@ do {
     assertEqual(dummyRes.compensationCurve.count, 512, "CorrectionResult compensationCurve has 512 points")
 }
 
+// Test Group 12: FIR pre-smooth must not move a resolved 9–11 kHz apex
+print("\nTesting FIR peak alignment around 8.4–11 kHz...")
+do {
+    func bandArgMaxIndex(_ freqs: [Double], _ curve: [Double], _ lo: Double, _ hi: Double) -> Int {
+        var best = 0
+        var bestVal = -Double.infinity
+        for i in 0..<freqs.count where freqs[i] >= lo && freqs[i] <= hi {
+            if curve[i] > bestVal {
+                bestVal = curve[i]
+                best = i
+            }
+        }
+        return best
+    }
+
+    let freqs = LogGrid.makeLogFreqs(numPoints: 512)
+    let iPeak = freqs.enumerated().min(by: { abs($0.element - 9008.0) < abs($1.element - 9008.0) })!.offset
+    let iNotch = freqs.enumerated().min(by: { abs($0.element - 9902.0) < abs($1.element - 9902.0) })!.offset
+    var residual = [Double](repeating: 0.0, count: freqs.count)
+    for i in 0..<freqs.count {
+        let peakTerm = log2(freqs[i] / freqs[iPeak]) / 0.02
+        let notchTerm = log2(freqs[i] / freqs[iNotch]) / 0.06
+        residual[i] = 1.2 * exp(-0.5 * peakTerm * peakTerm) - 6.0 * exp(-0.5 * notchTerm * notchTerm)
+    }
+
+    let rawApex = bandArgMaxIndex(freqs, residual, 8400.0, 11000.0)
+    assertEqual(rawApex, iPeak, "Synthetic residual apex sits on the 9008 Hz bin")
+
+    let broad = Smoothing.smoothCurveLogF(freqs: freqs, curve: residual, octaves: 1.0 / 12.0)
+    let broadApex = bandArgMaxIndex(freqs, broad, 8400.0, 11000.0)
+    assertTrue(
+        abs(broadApex - iPeak) > 1,
+        "1/12 oct smooth moves the 9008 Hz apex by more than one bin (shift \(broadApex - iPeak))"
+    )
+
+    let fine = Smoothing.smoothCurveLogF(freqs: freqs, curve: residual, octaves: Smoothing.firSmoothOctaves)
+    let fineApex = bandArgMaxIndex(freqs, fine, 8400.0, 11000.0)
+    assertEqual(fineApex, iPeak, "1/48 oct smooth keeps the apex on the 9008 Hz bin")
+
+    let ir = FIRDesigner.designFir(freqs: freqs, residualDb: fine, fs: fs, nTaps: 8192)
+    let firResp = FIRDesigner.firResponseDb(freqs: freqs, ir: ir, fs: fs)
+    let firApex = bandArgMaxIndex(freqs, firResp, 8400.0, 11000.0)
+    let freqRatio = max(freqs[firApex], freqs[rawApex]) / min(freqs[firApex], freqs[rawApex])
+    assertTrue(freqRatio < 1.02, "FIR apex stays within 2% of the raw residual apex (ratio \(freqRatio))")
+
+    var sumSq = 0.0
+    var count = 0
+    for i in 0..<freqs.count where freqs[i] >= 8400.0 && freqs[i] <= 11000.0 {
+        let err = firResp[i] - residual[i]
+        sumSq += err * err
+        count += 1
+    }
+    let bandRms = sqrt(sumSq / Double(max(count, 1)))
+    assertTrue(bandRms < 0.15, "FIR matches the raw residual in 8.4–11 kHz (RMS \(String(format: "%.3f", bandRms)) dB)")
+
+    let cacheDir = CSVFetcher.getCacheDir()
+    let srcURL = cacheDir.appendingPathComponent("AKG_K3003_(bass_boost_filter)_Innerfidelity.csv")
+    let tgtURL = cacheDir.appendingPathComponent("Etymotic_ER4SR_Innerfidelity.csv")
+    if let srcData = try? Data(contentsOf: srcURL),
+       let tgtData = try? Data(contentsOf: tgtURL),
+       let src = CSVFetcher.parseCSVData(srcData),
+       let tgt = CSVFetcher.parseCSVData(tgtData) {
+        let result = CorrectionEngine.calculateCorrection(
+            sourceFreqs: src.freqs,
+            sourceMags: src.mags,
+            targetFreqs: tgt.freqs,
+            targetMags: tgt.mags,
+            fs: fs
+        )
+        let grid = result.gridFreqs
+        let targetApex = bandArgMaxIndex(grid, result.targetCurve, 8400.0, 11000.0)
+        let simApex = bandArgMaxIndex(grid, result.simulatedCurve, 8400.0, 11000.0)
+        print("    K3003→ER4SR target apex \(String(format: "%.0f", grid[targetApex])) Hz, simulated \(String(format: "%.0f", grid[simApex])) Hz")
+        assertTrue(
+            abs(simApex - targetApex) <= 1,
+            "K3003→ER4SR simulated apex is within one bin of the target (target \(String(format: "%.0f", grid[targetApex])) Hz, sim \(String(format: "%.0f", grid[simApex])) Hz)"
+        )
+
+        var bandSum = 0.0
+        var bandCount = 0
+        for i in 0..<grid.count where grid[i] >= 8400.0 && grid[i] <= 11000.0 {
+            let err = result.simulatedCurve[i] - result.targetCurve[i]
+            bandSum += err * err
+            bandCount += 1
+        }
+        let pairRms = sqrt(bandSum / Double(max(bandCount, 1)))
+        assertTrue(
+            pairRms < 0.15,
+            "K3003→ER4SR 8.4–11 kHz combined RMS under 0.15 dB (actual \(String(format: "%.3f", pairRms)) dB)"
+        )
+    } else {
+        print("    [skip] cached K3003 bass-boost / ER4SR CSVs not found")
+    }
+}
+
 print("\n-------------------------------------------------------")
 if passedTests == totalTests {
     print("\u{001B}[32mAll \(totalTests) tests passed successfully!\u{001B}[0m")

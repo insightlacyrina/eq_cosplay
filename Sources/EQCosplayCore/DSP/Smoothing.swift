@@ -1,6 +1,10 @@
 import Foundation
 
 public enum Smoothing {
+    /// One bin of the 512-point 20 Hz–20 kHz grid is ~1/51 oct. Wider than that
+    /// merges peaks ~0.14 oct apart around 9–11 kHz and moves the simulated apex.
+    public static let firSmoothOctaves = 1.0 / 48.0
+
     /// Performs Gaussian smoothing on fractional octaves over logarithmic frequency
     public static func smoothCurveLogF(freqs: [Double], curve: [Double], octaves: Double) -> [Double] {
         guard octaves > 0 && freqs.count >= 3 && freqs.count == curve.count else {

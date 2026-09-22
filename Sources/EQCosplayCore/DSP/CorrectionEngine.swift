@@ -70,10 +70,12 @@ public enum CorrectionEngine {
         var combinedResp = peqResp
 
         if needsFir {
+            // 1/12 oct is wider than the ~0.14 oct peak/dip spacing around 9–11 kHz.
+            // That kernel parks the simulated apex on the source resonance while global RMSE stays small.
             let residualTarget = Smoothing.smoothCurveLogF(
                 freqs: gridFreqs,
                 curve: residualVsAligned,
-                octaves: 1.0 / 12.0
+                octaves: Smoothing.firSmoothOctaves
             )
             let ir = FIRDesigner.designFir(freqs: gridFreqs, residualDb: residualTarget, fs: fs, nTaps: 8192)
             let firResp = FIRDesigner.firResponseDb(freqs: gridFreqs, ir: ir, fs: fs)
