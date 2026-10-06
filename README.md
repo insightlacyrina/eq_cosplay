@@ -78,7 +78,8 @@ PEQ values can be copied into Equalizer APO, Wavelet, etc. **Full residual accur
 - **FIR residual stage** — replaces aggressive multi-band IIR “precision” mode; CamillaDSP `Conv` + mono float WAVs
 - **Pre-amp modes** — safe / moderate / custom / none (from combined response peak)
 - **CamillaDSP deploy** — YAML under `presets/`, FIR WAVs beside config, **single-instance** engine (stops existing `camilladsp` only when needed, then notifies)
-- **GUI + CLI** — Tkinter UI with source / target / simulated FR overlay, or terminal workflow
+- **GUI + CLI** — A vector sound stage with membrane / flat response views, residuals and linked PEQ nodes; terminal workflow remains available
+- **Performance and exact data** — Lazy background preset previews, adaptive drawing quality, optional motion, original / aligned target levels, and full-grid CSV export
 - **i18n** — English / 中文 / 日本語
 - **Clean tree** — `presets/` for configs, `logs/` for all runtime logs
 

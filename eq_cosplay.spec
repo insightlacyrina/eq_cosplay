@@ -31,6 +31,12 @@ hiddenimports = [
     "theme",
     "menubar_macos",
     "cosplay",
+    "visual_data",
+    "sound_stage",
+    "preset_gallery",
+    "data_inspector",
+    "ui_controls",
+    "vector_icons",
 ]
 
 for pkg in ("numpy", "scipy"):
@@ -114,8 +120,8 @@ else:
             info_plist={
                 "CFBundleName": "EQ Cosplay",
                 "CFBundleDisplayName": "EQ Cosplay",
-                "CFBundleShortVersionString": "1.0.7",
-                "CFBundleVersion": "1.0.7",
+                "CFBundleShortVersionString": "1.0.8",
+                "CFBundleVersion": "1.0.8",
                 "NSHighResolutionCapable": True,
                 "LSMinimumSystemVersion": "11.0",
                 "LSUIElement": False,

@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""EchoCR & Liquid Glass visual language for the EQ Cosplay Tk GUI.
+"""Neutral industrial visual language for the EQ Cosplay Tk GUI.
 
-Matches the visual style, color palette, and component design of eq_cosplay_swift
-(ultra-dark panel UI, Liquid Glass cards, gold/teal/emerald accents, JetBrains Mono logs).
+Tk widgets use solid graphite surfaces with fine borders. Source, target, and
+simulated response use restrained cool gray, steel blue, and sage gray. Legacy
+``make_glass_frame`` naming remains for callers, although Tk does not blur widgets.
 """
 
 from __future__ import annotations
@@ -12,49 +13,62 @@ from pathlib import Path
 from tkinter import Canvas, Frame, TclError
 from tkinter import font as tkfont
 
-# EchoCR & Swift Design Tokens (1:1 with EchoCRTheme.swift)
-BG = "#0b0d11"              # Base window background
-PANEL = "#12161d"           # Card surface fill
-PANEL_GLASS = "#161b24"     # Elevated card surface
-BORDER = "#2a3340"          # Base specular rim border
-LINE = "#2a3340"            # Separators and table borders
-BORDER_SPECULAR = "#3d4b5c" # Highlighted rim border
-BORDER_SUBTLE = "#1e2633"   # Subtle inner border
-TEXT = "#e8edf4"            # Primary text
-MUTED = "#8b97a8"           # Secondary muted text
-GOLD = "#d4a24a"            # Target curve accent & gold highlights
-TEAL = "#5eead4"            # Source curve accent & teal highlights
-EMERALD = "#34d399"         # Simulated curve & success indicators
-OK = "#34d399"              # Success indicator
-ROSE = "#f87171"            # Delta curve & error/warning indicators
-SLOT = "#1a212c"            # Slot and row alternate fill
-INPUT = "#0e1319"           # Input and search box background
-BTN = "#1c232e"             # Default button background
-BTN_HOVER = "#273140"       # Default button hover
-PRIMARY_BG = "#12352f"      # Primary prominent action background
-PRIMARY_LINE = "#2d6a62"    # Primary prominent action border
-PRIMARY_HOVER = "#18453d"   # Primary prominent action hover
-GOLD_BG = "#2a210f"         # Gold action background
-LOG_BG = "#0a0d11"          # Terminal log background
-LOG_FG = "#c5d0dc"          # Terminal log text
-GLOW_GOLD = "#d4a24a"
+# Neutral surfaces and semantic response roles. Older names remain aliases so
+# existing callers can migrate without preserving the former warm palette.
+BG = "#111418"              # Main window
+PANEL = "#191e23"           # Card surface
+PANEL_GLASS = "#20262c"     # Elevated surface (legacy name)
+BORDER = "#343d45"          # Structural border
+LINE = "#2c343b"            # Separators and table rules
+BORDER_SPECULAR = "#72808a" # Focus and hover rim
+BORDER_SUBTLE = "#283038"   # Quiet inner border
+TEXT = "#e4e9ec"            # Primary text
+MUTED = "#9ca8b0"           # Secondary text
+PLOT_SRC = "#b5c0c8"         # Source response: cool light gray
+PLOT_TGT = "#879aa8"         # Target response: muted steel blue
+PLOT_SIM = "#9eaaa2"         # Simulated response: muted sage gray
+PLOT_DELTA = "#aa9695"       # Residual: low-saturation warm gray
+SILVER = PLOT_SRC
+CHAMPAGNE = PLOT_TGT
+GOLD = PLOT_TGT              # Compatibility alias; value is cool steel blue
+TEAL = "#aab5bd"             # Neutral legacy accent
+EMERALD = "#9eaaa2"          # Compatibility alias; subdued success/simulation
+OK = "#9eaaa2"
+ROSE = "#aa9695"
+SLOT = "#222930"             # Slot and alternate row fill
+INPUT = "#14191d"            # Input surface
+BTN = "#252d33"              # Default button
+BTN_HOVER = "#303a42"        # Clearly visible hover state
+PRIMARY_BG = "#cbd3d8"       # High-contrast neutral action
+PRIMARY_FG = "#111519"
+PRIMARY_LINE = "#e1e7ea"
+PRIMARY_HOVER = "#e2e7ea"
+GOLD_BG = "#2a3035"          # Neutral compatibility surface
+LOG_BG = "#12171b"
+LOG_FG = "#c6cdd1"
+GLOW_GOLD = GOLD
 
-# Plot Specific Tokens (matching FrequencyResponsePlotView.swift)
-PLOT_FACE = "#0e1319"       # Canvas face
-PLOT_GRID = "#1a222d"       # Grid lines
-PLOT_SRC = "#8b97a8"        # Source curve (dim white / secondary)
-PLOT_TGT = "#e8edf4"        # Target curve (pure white)
-PLOT_SIM = "#34d399"        # Simulated curve (emerald)
-PLOT_DELTA = "#f87171"      # Delta curve (rose)
+# Plot role colors follow the same semantic order across views.
+PLOT_FACE = "#151a1e"       # Plot face
+PLOT_GRID = "#2b343b"       # Quiet grid lines
+
+FOCUS = "#aab8c1"
+SUCCESS = OK
+WARNING = "#a9aaa3"
+ERROR = ROSE
 
 UI_FAMILY_CANDIDATES = (
     ".AppleSystemUIFont",
-    "SF Pro Display",
+    "Segoe UI",
+    "Microsoft YaHei UI",
     "PingFang SC",
+    "Yu Gothic UI",
+    "Meiryo",
     "Helvetica Neue",
-    "AR FangXinShuH7GBK HV",
-    "AR FangXinShuH7GBK",
-    "FangXinShu",
+    "Arial",
+    "Noto Sans CJK SC",
+    "Noto Sans CJK JP",
+    "sans-serif",
 )
 MONO_FAMILY_CANDIDATES = (
     "JetBrains Mono",
@@ -218,7 +232,7 @@ def mono_family() -> str:
 
 
 def make_glass_frame(parent, padding: int = 10, **kwargs) -> Frame:
-    """Create a Frame styled with Liquid Glass aesthetics (panel background, subtle rim border)."""
+    """Create a solid graphite card with a quiet border (legacy function name)."""
     frame = Frame(
         parent,
         bg=PANEL,
@@ -238,10 +252,10 @@ def draw_rounded_rect(
     y1: float,
     x2: float,
     y2: float,
-    radius: float = 8,
+    radius: float = 0,
     **kwargs,
 ) -> int:
-    """Draw a smooth rounded polygon on a Tk Canvas."""
+    """Draw a square polygon by default, with optional softened corners."""
     r = min(radius, (x2 - x1) / 2, (y2 - y1) / 2)
     points = [
         x1 + r, y1,
@@ -257,25 +271,30 @@ def draw_rounded_rect(
         x1, y1 + r,
         x1, y1,
     ]
-    return canvas.create_polygon(points, smooth=True, **kwargs)
+    return canvas.create_polygon(points, smooth=bool(r), **kwargs)
 
 
 def apply(root) -> dict:
-    """Paint the EchoCR Liquid Glass dark theme onto a Tk root."""
+    """Apply the shared graphite material and semantic response palette."""
     from tkinter import ttk
 
     resolve_families(root)
     ui = ui_family()
     mono = mono_family()
 
+    ui24 = (ui, 22, "bold")
     ui14 = (ui, 14)
     ui13 = (ui, 13)
     ui12 = (ui, 12)
     ui11 = (ui, 11)
     ui10 = (ui, 10)
     ui9 = (ui, 9)
-    title = (ui, 13, "bold")
-    mark_font = (ui, 13, "bold")
+    title = (ui, 15)
+    hero = (ui, 18)
+    subhead = (ui, 13)
+    caption = (ui, 9)
+    metric = (mono, 16)
+    mark_font = (ui, 12, "bold")
     mono11 = (mono, 11)
     mono10 = (mono, 10)
     mono9 = (mono, 9)
@@ -291,8 +310,8 @@ def apply(root) -> dict:
         root.option_add("*Foreground", TEXT)
         root.option_add("*TCombobox*Listbox.background", INPUT)
         root.option_add("*TCombobox*Listbox.foreground", TEXT)
-        root.option_add("*TCombobox*Listbox.selectBackground", GOLD_BG)
-        root.option_add("*TCombobox*Listbox.selectForeground", GOLD)
+        root.option_add("*TCombobox*Listbox.selectBackground", SLOT)
+        root.option_add("*TCombobox*Listbox.selectForeground", TEXT)
         root.option_add("*TCombobox*Listbox.font", ui11)
         root.option_add("*Entry.background", INPUT)
         root.option_add("*Entry.foreground", TEXT)
@@ -320,38 +339,42 @@ def apply(root) -> dict:
     style.configure("Muted.TLabel", background=BG, foreground=MUTED, font=ui10)
     style.configure("PanelMuted.TLabel", background=PANEL, foreground=MUTED, font=ui10)
     style.configure("Title.TLabel", background=BG, foreground=TEXT, font=title)
+    style.configure("Hero.TLabel", background=BG, foreground=TEXT, font=hero)
+    style.configure("Subhead.TLabel", background=BG, foreground=TEXT, font=subhead)
+    style.configure("Caption.TLabel", background=BG, foreground=MUTED, font=caption)
+    style.configure("Metric.TLabel", background=PANEL, foreground=CHAMPAGNE, font=metric)
     style.configure("Section.TLabel", background=BG, foreground=MUTED, font=ui11)
     style.configure("Gold.TLabel", background=BG, foreground=GOLD, font=ui11)
     style.configure("Teal.TLabel", background=BG, foreground=TEAL, font=ui11)
     style.configure("Ok.TLabel", background=BG, foreground=OK, font=ui11)
     style.configure("Rose.TLabel", background=BG, foreground=ROSE, font=ui11)
 
-    # Status pills (matching Liquid Glass status badge)
+    # Compact status pills use the same surface and border hierarchy.
     style.configure(
         "Pill.TLabel",
         background=SLOT,
         foreground=MUTED,
         font=ui10,
-        padding=(10, 4),
+        padding=(9, 4),
         bordercolor=BORDER,
         relief="solid",
     )
     style.configure(
         "PillOn.TLabel",
-        background="#0c231c",
+        background="#202a2f",
         foreground=OK,
         font=ui10,
-        padding=(10, 4),
-        bordercolor="#1b4d3e",
+        padding=(9, 4),
+        bordercolor="#405059",
         relief="solid",
     )
     style.configure(
         "PillOff.TLabel",
-        background="#1c1111",
+        background="#2c2828",
         foreground=ROSE,
         font=ui10,
-        padding=(10, 4),
-        bordercolor="#4a1f1f",
+        padding=(9, 4),
+        bordercolor="#514747",
         relief="solid",
     )
 
@@ -361,7 +384,7 @@ def apply(root) -> dict:
         foreground=TEXT,
         bordercolor=BORDER,
         relief="solid",
-        padding=8,
+        padding=9,
     )
     style.configure(
         "TLabelframe.Label",
@@ -379,7 +402,7 @@ def apply(root) -> dict:
         darkcolor=BTN,
         lightcolor=BTN,
         focusthickness=0,
-        padding=(12, 6),
+        padding=(10, 5),
         font=ui11,
         relief="flat",
         wraplength=0,
@@ -389,47 +412,64 @@ def apply(root) -> dict:
         "TButton",
         background=[("disabled", PANEL), ("pressed", SLOT), ("active", BTN_HOVER)],
         foreground=[("disabled", MUTED)],
-        bordercolor=[("disabled", BORDER_SUBTLE), ("active", BORDER_SPECULAR), ("pressed", BORDER_SPECULAR)],
+        bordercolor=[("disabled", BORDER_SUBTLE), ("focus", FOCUS), ("active", BORDER_SPECULAR), ("pressed", BORDER_SPECULAR)],
     )
+
+    # Compact tabs share the same neutral system; selection is a fine border
+    # and a slight surface lift so persistent footer actions retain hierarchy.
+    style.configure("Tab.TButton", background=PANEL, foreground=MUTED,
+                    bordercolor=BORDER_SUBTLE, darkcolor=PANEL, lightcolor=PANEL,
+                    padding=(9, 4), font=ui10, relief="flat")
+    style.map("Tab.TButton",
+              background=[("pressed", SLOT), ("active", SLOT)],
+              foreground=[("disabled", MUTED), ("active", TEXT)],
+              bordercolor=[("focus", BORDER_SPECULAR), ("active", BORDER)])
+    style.configure("Selected.Tab.TButton", background=SLOT, foreground=TEXT,
+                    bordercolor=BORDER_SPECULAR, darkcolor=SLOT, lightcolor=SLOT,
+                    padding=(9, 4), font=ui10, relief="solid")
+    style.map("Selected.Tab.TButton",
+              background=[("pressed", BTN_HOVER), ("active", SLOT)],
+              foreground=[("disabled", MUTED)],
+              bordercolor=[("focus", TEXT), ("active", BORDER_SPECULAR)])
 
     # Primary Prominent Button (e.g. Deploy to CamillaDSP)
     style.configure(
         "Primary.TButton",
         background=PRIMARY_BG,
-        foreground=TEAL,
+        foreground=PRIMARY_FG,
         bordercolor=PRIMARY_LINE,
         darkcolor=PRIMARY_BG,
         lightcolor=PRIMARY_BG,
-        padding=(14, 6),
+        padding=(12, 5),
         font=ui11,
         wraplength=0,
         justify="center",
     )
     style.map(
         "Primary.TButton",
-        background=[("disabled", PANEL), ("pressed", "#0b2420"), ("active", PRIMARY_HOVER)],
-        foreground=[("disabled", MUTED), ("active", TEAL)],
-        bordercolor=[("disabled", BORDER_SUBTLE), ("active", TEAL)],
+        background=[("disabled", PANEL), ("pressed", "#b4bec4"), ("active", PRIMARY_HOVER)],
+        foreground=[("disabled", MUTED), ("active", PRIMARY_FG)],
+        bordercolor=[("disabled", BORDER_SUBTLE), ("active", PRIMARY_LINE)],
     )
 
-    # Gold Button
+    # Legacy gold-button style maps to the neutral secondary action.
     style.configure(
         "Gold.TButton",
-        background=GOLD_BG,
-        foreground=GOLD,
-        bordercolor=GOLD,
-        darkcolor=GOLD_BG,
-        lightcolor=GOLD_BG,
-        padding=(12, 6),
+        background=BTN,
+        foreground=TEXT,
+        bordercolor=BORDER_SPECULAR,
+        darkcolor=BTN,
+        lightcolor=BTN,
+        padding=(10, 5),
         font=ui11,
         wraplength=0,
         justify="center",
     )
     style.map(
         "Gold.TButton",
-        background=[("disabled", PANEL), ("pressed", "#1c160a"), ("active", "#3a2d14")],
-        foreground=[("disabled", MUTED), ("active", GOLD)],
-        bordercolor=[("disabled", BORDER_SUBTLE), ("active", GOLD)],
+        background=[("disabled", PANEL), ("pressed", SLOT), ("active", BTN_HOVER)],
+        foreground=[("disabled", MUTED), ("active", TEXT)],
+        bordercolor=[("disabled", BORDER_SUBTLE), ("active", BORDER_SPECULAR)],
     )
 
     # Ghost Button
@@ -440,7 +480,7 @@ def apply(root) -> dict:
         bordercolor=BORDER,
         darkcolor=BG,
         lightcolor=BG,
-        padding=(10, 5),
+        padding=(8, 4),
         font=ui11,
         wraplength=0,
         justify="center",
@@ -468,7 +508,7 @@ def apply(root) -> dict:
         "TEntry",
         fieldbackground=[("disabled", SLOT), ("readonly", INPUT)],
         foreground=[("disabled", MUTED)],
-        bordercolor=[("focus", TEAL), ("active", BORDER_SPECULAR)],
+        bordercolor=[("focus", FOCUS), ("active", BORDER_SPECULAR)],
     )
 
     style.configure(
@@ -487,7 +527,7 @@ def apply(root) -> dict:
         "TCombobox",
         fieldbackground=[("readonly", INPUT), ("disabled", SLOT)],
         foreground=[("disabled", MUTED)],
-        bordercolor=[("focus", TEAL), ("active", BORDER_SPECULAR)],
+        bordercolor=[("focus", FOCUS), ("active", BORDER_SPECULAR)],
         arrowcolor=[("active", TEXT)],
     )
 
@@ -512,9 +552,13 @@ def apply(root) -> dict:
         font=ui10,
         padding=4,
     )
+    style.configure("Numeric.Treeview", background=SLOT, fieldbackground=SLOT,
+                    foreground=TEXT, bordercolor=BORDER, rowheight=25, font=mono10)
+    style.configure("Numeric.Treeview.Heading", background=PANEL, foreground=MUTED,
+                    bordercolor=BORDER, relief="flat", font=ui10, padding=4)
     style.map(
         "Treeview",
-        background=[("selected", "#222d3d")],
+        background=[("selected", "#303a42")],
         foreground=[("selected", TEXT)],
     )
     style.map(
@@ -549,6 +593,11 @@ def apply(root) -> dict:
         "ui10": ui10,
         "ui9": ui9,
         "title": title,
+        "ui24": ui24,
+        "hero": hero,
+        "subhead": subhead,
+        "caption": caption,
+        "metric": metric,
         "mark": mark_font,
         "mono11": mono11,
         "mono10": mono10,
@@ -558,7 +607,9 @@ def apply(root) -> dict:
 
 
 def make_mark(parent, text: str = "EQ", size: int = 32) -> Canvas:
-    """Gold-bordered square mark, matching EchoCR `.mark`."""
+    """Create the compact sound-transformation emblem used in the header."""
+    from vector_icons import draw_brand_mark
+
     cv = Canvas(
         parent,
         width=size,
@@ -567,22 +618,11 @@ def make_mark(parent, text: str = "EQ", size: int = 32) -> Canvas:
         highlightthickness=0,
         bd=0,
     )
-    inset = 1
-    cv.create_rectangle(
-        inset,
-        inset,
-        size - inset,
-        size - inset,
-        outline=GOLD,
-        width=1,
-    )
-    cv.create_text(
-        size / 2,
-        size / 2,
-        text=text,
-        fill=GOLD,
-        font=(ui_family(), max(10, size // 3), "bold"),
-    )
+    draw_brand_mark(cv, 1, 1, size - 2, color=PLOT_SRC, secondary=PLOT_TGT, tag="brand-mark")
+    if text and text != "EQ":
+        cv.create_text(size / 2, size / 2, text=text, fill=TEXT,
+                       font=(ui_family(), max(9, size // 4)),
+                       tags=("brand-mark-label",))
     return cv
 
 
@@ -592,7 +632,7 @@ def style_log_widget(widget, mono_font) -> None:
             background=LOG_BG,
             foreground=LOG_FG,
             insertbackground=TEXT,
-            selectbackground="#1e2c3d",
+            selectbackground="#303a42",
             selectforeground=TEXT,
             highlightthickness=1,
             highlightbackground=BORDER,

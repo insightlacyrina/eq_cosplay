@@ -3006,6 +3006,8 @@ def calculate_correction(
         "peq_resp": peq_resp,
         "source_fr": np.array(source_interp, copy=True),
         "target_fr": np.array(source_interp + delta_aligned, copy=True),
+        "target_raw_fr": np.array(target_interp, copy=True),
+        "samplerate": int(fs),
     }
 
 
